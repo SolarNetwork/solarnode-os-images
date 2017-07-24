@@ -1,5 +1,10 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2017-07-25
+
+ * Update to latest Raspbian packages
+ * Update to SolarNode base framework 20170725
+
 ## 2017-06-29
 
  * Update the system.ssh plugin to address a potential startup bug.
