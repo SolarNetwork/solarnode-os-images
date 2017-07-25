@@ -17,17 +17,17 @@ The *hardware* names are as follows:
 
 To restore these onto a SD card, run the following command:
 
-	# Copy image to SD card located at /dev/sdb
-	xz -cd solarnode-deb8-pi-1GB.img.xz |dd of=/dev/sdb bs=2M
+	# Copy image to SD card located at /dev/sde
+	xz -cd solarnode-deb8-pi-1GB.img.xz |dd of=/dev/sde bs=2M
 	
 	# Sync to disk
 	sync
 	
 	# Re-read the partition table
-	blockdev --rereadpt /dev/sdb
+	blockdev --rereadpt /dev/sde
 	
 	# Just to be sure, let's check the root filesystem
-	e2fsck -f /dev/sdb2
+	e2fsck -f /dev/sde2
 
 # Network setup
 
