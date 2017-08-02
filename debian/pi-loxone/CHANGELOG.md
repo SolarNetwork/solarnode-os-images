@@ -1,5 +1,11 @@
 # SolarNode Debian OS - Pi Loxone
 
+## 2017-08-02
+
+ * Update to SolarNode plugins 20170802 to address database maintenance
+   issues (NODE-126)
+
+
 ## 2017-07-25
 
  * Update to latest Raspbian packages
