@@ -1,11 +1,18 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2017-09-29
+
+ * Update to latest Raspbian packages
+ * Update to SolarNode base framework 20170929
+
+
 ## 2017-07-25
 
  * Update to latest Raspbian packages
  * Update to SolarNode base framework 20170725
  * Adjust JVM memory parameters with `-XX:MaxMetaspaceSize` -Xmx128m for
    better performance
+
 
 ## 2017-06-29
 
