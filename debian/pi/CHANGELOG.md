@@ -1,5 +1,12 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2017-10-05
+
+ * Add S3 backup support
+ * Update to SolarNode base framework 20101005
+ * Remove 60+ unnecessary OS packages
+
+
 ## 2017-09-29
 
  * Update to latest Raspbian packages
