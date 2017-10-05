@@ -1,5 +1,13 @@
 # SolarNode Debian OS - Pi Loxone
 
+## 2017-10-05
+
+ * Add S3 backup support
+ * Update to SolarNode base framework 20101005
+ * Update to latest Raspbian packages
+ * Remove 60+ unnecessary OS packages
+
+
 ## 2017-08-02
 
  * Update to SolarNode plugins 20170802 to address database maintenance
