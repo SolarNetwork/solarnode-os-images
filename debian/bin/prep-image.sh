@@ -97,7 +97,7 @@ if [ -e "$MOUNT/home/solar/work" ]; then
 fi
 
 if [ $VERBOSE = 1 ]; then
-	echo "Filling empty space with 1s..."
+	echo "Filling empty space with zeros..."
 	echo "sfill -f -l -l -z $MOUNT"
 fi
 if [ ! $DRYRUN = 1 ]; then
