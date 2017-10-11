@@ -1,5 +1,12 @@
 # SolarNode Debian OS - eBox
 
+## 2017-10-05
+
+ * Add S3 backup support
+ * Update to SolarNode base framework 20101005
+ * Remove unnecessary OS packages
+
+
 ## 2017-07-25
 
  * Update to latest Jessie 8.9
