@@ -5,7 +5,7 @@
  * Add S3 backup support
  * Update to SolarNode base framework 20101005
  * Update to latest Raspbian packages
- * Remove 60+ unnecessary OS packages
+ * Remove unnecessary OS packages
 
 
 ## 2017-08-02
