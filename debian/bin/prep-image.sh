@@ -108,6 +108,13 @@ umount "$MOUNT"
 losetup -d $LOOPDEV
 
 if [ $VERBOSE = 1 ]; then
+	echo "Checksumming image as $IMGNAME.sha256..."
+fi
+if [ ! $DRYRUN = 1 ]; then
+	sha256sum "$IMGNAME" >"$IMGNAME.sha256"
+fi
+
+if [ $VERBOSE = 1 ]; then
 	echo "Compressing image as $IMGNAME.xz..."
 fi
 if [ ! $DRYRUN = 1 ]; then
