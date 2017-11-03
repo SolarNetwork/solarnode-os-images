@@ -1,9 +1,20 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2017-11-03
+
+ * Update to latest Raspbian packages
+ * Update to SolarNode base framework 20171103
+
+
+## 2017-10-24
+
+ * Fix /etc/fstab to use labels so image more easily works with libguestfs
+
+
 ## 2017-10-05
 
  * Add S3 backup support
- * Update to SolarNode base framework 20101005
+ * Update to SolarNode base framework 20171005
  * Remove 60+ unnecessary OS packages
 
 
