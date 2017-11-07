@@ -1,5 +1,12 @@
 # SolarNode Debian OS - eBox
 
+## 2017-11-07
+
+ * Update to latest Debian packages
+ * Update to SolarNode base framework 20171105
+ * Add auto-expand root file system support
+
+
 ## 2017-10-05
 
  * Add S3 backup support

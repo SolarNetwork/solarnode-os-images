@@ -1,5 +1,12 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2017-11-08
+
+ * Update to latest Raspbian packages
+ * Update to SolarNode base framework 20171105
+ * Add auto-expand root file system support
+
+
 ## 2017-11-03
 
  * Update to latest Raspbian packages
