@@ -77,4 +77,4 @@ sha256sum solarnode-deb8-pi-1GB.img.xz >solarnode-deb8-pi-1GB.img.xz.sha256
 ```
 
   [1]: https://www.raspberrypi.org/
-  [2]: https://github.com/SolarNetwork/solarnetwork/wiki/SolarNode-OS-Setup-Guide-Raspbian
+  [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Raspbian
