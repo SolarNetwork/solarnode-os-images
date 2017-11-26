@@ -1,7 +1,7 @@
 # SolarNode Raspberry Pi Images
 
 These images were created for the the [Raspberry Pi][1], based 
-off the [SolarNode OS Setup Guide - Raspbian][2].
+off the [Node OS Setup Guide - Raspbian][2].
 
 The image names are in the form `[OS]-[hardware]-[SD size]`. **Note**
 that you can copy the image to a _larger_ SD card, but you must then
