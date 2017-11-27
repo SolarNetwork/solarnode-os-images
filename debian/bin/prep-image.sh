@@ -2,16 +2,13 @@
 
 DRYRUN=0
 VERBOSE=0
+KEEP_SSH=0
 
-while getopts ":nv" opt; do
+while getopts ":knv" opt; do
 	case $opt in
-		n)
-			DRYRUN=1
-			;;
-
-		v)
-			VERBOSE=1
-			;;
+		k) KEEP_SSH=1 ;; 
+		n) DRYRUN=1 ;;
+		v) VERBOSE=1 ;;
 	esac
 done
 
@@ -56,10 +53,10 @@ fi
 
 if [ $VERBOSE = 1 ]; then
 	echo "Finding archive logs to delete..."
-	find "$MOUNT/var/log" -type f -name '*.gz' -o -name '*.1' -print
+	find "$MOUNT/var/log" -type f \( -name '*.gz' -o -name '*.1' \) -print
 fi
 if [ ! $DRYRUN = 1 ]; then
-	find "$MOUNT/var/log" -type f -name '*.gz' -o -name '*.1' -delete
+	find "$MOUNT/var/log" -type f \( -name '*.gz' -o -name '*.1' \) -delete
 fi
 
 if [ $VERBOSE = 1 ]; then
@@ -70,12 +67,18 @@ if [ ! $DRYRUN = 1 ]; then
 	find "$MOUNT/var/log" -type f -size +0c -exec sh -c '> {}' \;
 fi
 
-if [ $VERBOSE = 1 ]; then
-	echo "Deleting SSH host keys..."
-	find "$MOUNT/etc/ssh" -type f -name 'ssh_host_*' -print
-fi
-if [ ! $DRYRUN = 1 ]; then
-	find "$MOUNT/etc/ssh" -type f -name 'ssh_host_*' -delete
+if [ $KEEP_SSH = 1 ]; then
+	if [ $VERBOSE = 1 ]; then
+		echo "Preserving SSH host keys."
+	fi
+else
+	if [ $VERBOSE = 1 ]; then
+		echo "Deleting SSH host keys..."
+		find "$MOUNT/etc/ssh" -type f -name 'ssh_host_*' -print
+	fi
+	if [ ! $DRYRUN = 1 ]; then
+		find "$MOUNT/etc/ssh" -type f -name 'ssh_host_*' -delete
+	fi
 fi
 
 if [ -e "$MOUNT/home/solar/var" ]; then
