@@ -1,7 +1,7 @@
 # SolarNode Raspberry Pi Images
 
 These images were created for the the [Raspberry Pi][1], based 
-off the [SolarNode OS Setup Guide - Raspbian][2].
+off the [Node OS Setup Guide - Raspbian][2].
 
 The image names are in the form `[OS]-[hardware]-[SD size]`. **Note**
 that you can copy the image to a _larger_ SD card, but you must then
@@ -77,4 +77,4 @@ sha256sum solarnode-deb8-pi-1GB.img.xz >solarnode-deb8-pi-1GB.img.xz.sha256
 ```
 
   [1]: https://www.raspberrypi.org/
-  [2]: https://github.com/SolarNetwork/solarnetwork/wiki/SolarNode-OS-Setup-Guide-Raspbian
+  [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Raspbian
