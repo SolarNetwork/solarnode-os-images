@@ -1,5 +1,13 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2017-12-12
+
+ * Update to latest Raspbian packages
+ * Update to SolarNode base framework 20171121
+ * Add Debian 9 (Stretch) image
+ * Replace exim4 MTA with (smaller) dma
+ * Remove more unnecessary packages
+
 ## 2017-11-08
 
  * Update to latest Raspbian packages
