@@ -1,5 +1,11 @@
 # SolarNode Debian OS - eBox
 
+## 2017-12-11
+
+ * Update to latest Jessie 8.10
+ * Update to SolarNode base framework 20171121
+
+
 ## 2017-11-07
 
  * Update to latest Debian packages
