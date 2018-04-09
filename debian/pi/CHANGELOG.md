@@ -1,5 +1,10 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2018-04-09
+
+ * Update to latest Raspbian packages
+ * Update to SolarNode base framework 20180409
+
 ## 2017-12-21
 
  * Add `mbpoll` package for command line Modbus testing
