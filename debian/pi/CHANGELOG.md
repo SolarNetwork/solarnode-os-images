@@ -1,5 +1,10 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2018-04-20
+
+ * Enable hardware watchdog with systemd and automatic crash reboot
+ * Update to latest Raspbian packages
+
 ## 2018-04-09
 
  * Update to latest Raspbian packages
