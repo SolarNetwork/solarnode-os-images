@@ -1,5 +1,11 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2018-05-12
+
+ * Recreate image from scratch using latest Raspbian Lite image
+ * Add `solarnode-wpa-config` service to copy `/boot/wpa_supplicant.conf` to
+   right place when OS boots, like what Raspbian provides.
+
 ## 2018-04-20
 
  * Enable hardware watchdog with systemd and automatic crash reboot
