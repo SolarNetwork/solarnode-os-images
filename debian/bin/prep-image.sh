@@ -99,6 +99,15 @@ if [ -e "$MOUNT/home/solar/work" ]; then
 	fi
 fi
 
+if [ -e "$MOUNT/etc/wpa_supplicant/wpa_supplicant-wlan0.conf" ]; then
+	if [ $VERBOSE = 1 ]; then
+		echo "Deleting WiFi configuration..."
+	fi
+	if [ ! $DRYRUN = 1 ]; then
+		rm -rf "$MOUNT/etc/wpa_supplicant/wpa_supplicant-wlan0.conf"
+	fi
+fi
+
 if [ $VERBOSE = 1 ]; then
 	echo "Filling empty space with zeros..."
 	echo "sfill -f -l -l -z $MOUNT"
