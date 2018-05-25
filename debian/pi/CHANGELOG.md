@@ -1,5 +1,10 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2018-05-12
+
+ * Rebuild image from scratch using latest Raspbian Lite upstream
+   image.
+
 ## 2018-04-20
 
  * Enable hardware watchdog with systemd and automatic crash reboot

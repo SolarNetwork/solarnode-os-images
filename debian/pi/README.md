@@ -58,9 +58,9 @@ support using the _solarnode_ hostname.
 The 1GB images are paritioned like this:
 
 ```
-Device     Boot  Start     End Sectors  Size Id Type
-/dev/sde1         8192  122879  114688   56M  c W95 FAT32 (LBA)
-/dev/sde2       122880 1949695 1826816  892M 83 Linux
+Device     Boot Start     End Sectors  Size Id Type
+/dev/sde1        8192   96453   88262 43.1M  c W95 FAT32 (LBA)
+/dev/sde2       98304 1949695 1851392  904M 83 Linux
 ```
 
 The image is copied with a `dd` command like this:
