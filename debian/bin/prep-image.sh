@@ -67,6 +67,14 @@ if [ ! $DRYRUN = 1 ]; then
 	find "$MOUNT/var/log" -type f -size +0c -exec sh -c '> {}' \;
 fi
 
+if [ $VERBOSE = 1 ]; then
+	echo "Finding apt cache files to delete..."
+	find "$MOUNT/var/cache/apt" -type f -name '*.bin' -print
+fi
+if [ ! $DRYRUN = 1 ]; then
+	find "$MOUNT/var/cache/apt" -type f -name '*.bin' -delete
+fi
+
 if [ $KEEP_SSH = 1 ]; then
 	if [ $VERBOSE = 1 ]; then
 		echo "Preserving SSH host keys."
