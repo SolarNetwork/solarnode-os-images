@@ -116,16 +116,15 @@ if [ -e "$MOUNT/etc/wpa_supplicant/wpa_supplicant-wlan0.conf" ]; then
 	fi
 fi
 
-if [ $VERBOSE = 1 ]; then
-	echo "Filling empty space with zeros..."
-	echo "sfill -f -l -l -z $MOUNT"
-fi
-if [ ! $DRYRUN = 1 ]; then
-	sfill -f -l -l -z "$MOUNT"
-fi
-
 umount "$MOUNT"
 losetup -d $LOOPDEV
+
+if [ $VERBOSE = 1 ]; then
+	echo "Optimizing image $IMGNAME..."
+fi
+if [ ! $DRYRUN = 1 ]; then
+	virt-sparsify --format raw "$IMGNAME" "$IMGNAME.vs" && mv -f "$IMGNAME.vs" "$IMGNAME"
+fi
 
 if [ $VERBOSE = 1 ]; then
 	echo "Checksumming image as $IMGNAME.sha256..."
