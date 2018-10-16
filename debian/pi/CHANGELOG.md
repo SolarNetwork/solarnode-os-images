@@ -1,5 +1,10 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2018-10-17
+
+ * Update to latest Raspbian packages
+ * Update to SolarNode base framework 20181017
+
 ## 2018-08-14
 
  * Add `solarstat` tool to support OS Statistics plugin.
