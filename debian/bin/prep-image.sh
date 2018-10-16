@@ -77,10 +77,11 @@ fi
 
 if [ $VERBOSE = 1 ]; then
 	echo "Finding  localized man files to delete..."
-	ls $MOUNT/usr/share/man/?? $MOUNT/usr/share/man/??_*
+	find "$MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) -print
 fi
 if [ ! $DRYRUN = 1 ]; then
-	rm -rf $MOUNT/usr/share/man/?? $MOUNT/usr/share/man/??_*
+	find "$MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) \
+		-exec rm -rf {} \;
 fi
 
 if [ $KEEP_SSH = 1 ]; then
