@@ -75,6 +75,14 @@ if [ ! $DRYRUN = 1 ]; then
 	find "$MOUNT/var/cache/apt" -type f -name '*.bin' -delete
 fi
 
+if [ $VERBOSE = 1 ]; then
+	echo "Finding  localized man files to delete..."
+	ls $MOUNT/usr/share/man/?? $MOUNT/usr/share/man/??_*
+fi
+if [ ! $DRYRUN = 1 ]; then
+	rm -rf $MOUNT/usr/share/man/?? $MOUNT/usr/share/man/??_*
+fi
+
 if [ $KEEP_SSH = 1 ]; then
 	if [ $VERBOSE = 1 ]; then
 		echo "Preserving SSH host keys."
