@@ -125,6 +125,15 @@ if [ -e "$MOUNT/etc/wpa_supplicant/wpa_supplicant-wlan0.conf" ]; then
 	fi
 fi
 
+if [ -n "$(find $MOUNT/var/local -maxdepth 1 -name 'solarnode-expandfs.saved*' -print -quit)" ]; then
+	if [ $VERBOSE = 1 ]; then
+		echo "Deleting expandfs save files..."
+	fi
+	if [ ! $DRYRUN = 1 ]; then
+		find $MOUNT/var/local -maxdepth 1 -name 'solarnode-expandfs.saved*' -print -delete
+	fi
+fi
+
 umount "$MOUNT"
 losetup -d $LOOPDEV
 
