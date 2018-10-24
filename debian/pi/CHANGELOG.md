@@ -1,5 +1,10 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2018-10-24
+
+ * Add service to automatically start/restart wpa\_supplicant when
+   the wlan0 configuration is created/changed.
+
 ## 2018-10-17
 
  * Update to latest Raspbian packages
