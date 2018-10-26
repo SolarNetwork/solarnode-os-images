@@ -37,6 +37,41 @@ ethernet device, and use DHCP to obtain an IP address, using the hostname
 can take several minutes) check your DHCP server to find what IP address was
 allocated.
 
+## WiFi setup
+
+You can configure a WiFi connection by creating a `/boot/wpa_supplicant.conf` file
+with content like the following, using a plain-text password:
+
+```
+country=nz
+network={
+	ssid="my wifi"
+	psk="plain text password here"
+}
+```
+
+You can also use the `wpa_passphrase` tool to more securely store the password. Run the 
+tool like:
+
+```sh
+wpa_passphrase "my wifi" "plain text password"
+```
+
+It will output the full configuration, which includes a hashed version of the password.
+Note that when using this form, you must omit the quotes around the `psk=` value, like
+this:
+
+```
+country=nz
+network={
+	ssid="my wifi"
+	psk=6a24edf1592aec4465271b7dcd204601b6e78df3186ce1a62a31f40ae9630702
+}
+```
+
+Note that the OS will move the `/boot/wpa_supplicant.conf` file to 
+`/etc/wpa_supplicant/wpa_supplicant-wlan0.conf` when it boots up. 
+
 # Login user
 
 The system contains a default user of `solar` with password `solar`. That user can
