@@ -10,8 +10,7 @@ the additional space.
 
 The *hardware* names are as follows:
 
- * `pi` - the 512MB RAM version of the [Orange Pi][1] (Pi 2/3 supported
-   as well)
+ * `orangepi-zero` - the 512MB RAM version of the [Orange Pi Zero][3]
  	
 # How to copy images to SD card
 
@@ -77,3 +76,4 @@ sha256sum solarnode-deb8-orangepi-zero-1GB.img.xz >solarnode-deb8-orangepi-zero-
 
   [1]: https://www.orangepi.org/
   [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Armbian-Orange-Pi
+  [3]: http://www.orangepi.org/orangepizero/
