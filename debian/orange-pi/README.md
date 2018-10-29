@@ -17,7 +17,7 @@ The *hardware* names are as follows:
 To restore these onto a SD card, run the following command:
 
 	# Copy image to SD card located at /dev/sdd
-	xz -cd solarnode-deb8-pi-1GB.img.xz |dd of=/dev/sdd bs=2M
+	xz -cd solarnode-deb9-orangepi-zero-1GB.img.xz |dd of=/dev/sdd bs=2M
 	
 	# Sync to disk
 	sync
@@ -64,14 +64,14 @@ Device     Boot Start     End Sectors  Size Id Type
 The image is copied with a `dd` command like this:
 
 ```
-dd if=/dev/sdd conv=sync,noerror bs=4k count=243712 of=solarnode-deb8-orangepi-zero-1GB.img
+dd if=/dev/sdd conv=sync,noerror bs=4k count=243712 of=solarnode-deb9-orangepi-zero-1GB.img
 ```
 
 The image is then compressed, and then a digest computed like this:
 
 ```
-xz -c -9 solarnode-deb8-orangepi-zero-1GB.img >solarnode-deb8-orangepi-zero-1GB.img.xz
-sha256sum solarnode-deb8-orangepi-zero-1GB.img.xz >solarnode-deb8-orangepi-zero-1GB.img.xz.sha256
+xz -c -9 solarnode-deb9-orangepi-zero-1GB.img >solarnode-deb9-orangepi-zero-1GB.img.xz
+sha256sum solarnode-deb9-orangepi-zero-1GB.img.xz >solarnode-deb9-orangepi-zero-1GB.img.xz.sha256
 ```
 
   [1]: https://www.orangepi.org/
