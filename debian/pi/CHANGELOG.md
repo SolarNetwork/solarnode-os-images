@@ -1,5 +1,9 @@
 # SolarNode Debian OS - Raspberry Pi
 
+## 2018-11-30
+
+ * Update to latest Raspbian packages
+
 ## 2018-10-24
 
  * Add service to automatically start/restart wpa\_supplicant when
