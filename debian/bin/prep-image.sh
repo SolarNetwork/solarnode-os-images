@@ -75,6 +75,16 @@ if [ ! $DRYRUN = 1 ]; then
 	find "$MOUNT/var/cache/apt" -type f -name '*.bin' -delete
 fi
 
+if [ -e "$MOUNT/var/tmp" ]; then
+	if [ $VERBOSE = 1 ]; then
+		echo "Deleting temporary files from /var/tmp..."
+		find "$MOUNT/var/tmp" -type f -print
+	fi
+	if [ ! $DRYRUN = 1 ]; then
+		find "$MOUNT/var/tmp" -type f -delete
+	fi
+fi
+
 if [ $VERBOSE = 1 ]; then
 	echo "Finding  localized man files to delete..."
 	find "$MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) -print
