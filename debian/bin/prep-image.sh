@@ -94,6 +94,13 @@ if [ ! $DRYRUN = 1 ]; then
 		-exec rm -rf {} \;
 fi
 
+if [ $VERBOSE = 1 -a -e "$MOUNT/etc/machine-id" ]; then
+	echo "Deleting /etc/machine-id"
+fi
+if [ $DRYRUN != 1 -a -e "$MOUNT/etc/machine-id" ]; then
+	rm -f "$MOUNT/etc/machine-id"
+fi
+
 if [ $KEEP_SSH = 1 ]; then
 	if [ $VERBOSE = 1 ]; then
 		echo "Preserving SSH host keys."
