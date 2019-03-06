@@ -1,5 +1,12 @@
 # SolarNode Debian OS - Orange Pi
 
+## 2019-03-06
+
+ * Add missing ~solar/.ssh/known_hosts file with ssh.solarnetwork.net identity
+   for automatic support for SolarSSH.
+ * Update to latest base framework.
+ * Update to latest platform.
+
 ## 2018-11-01
 
  * Fix /etc/hosts file to include "solarnode" alias for localhost
