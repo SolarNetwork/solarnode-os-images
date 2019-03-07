@@ -94,11 +94,18 @@ if [ ! $DRYRUN = 1 ]; then
 		-exec rm -rf {} \;
 fi
 
-if [ $VERBOSE = 1 -a -e "$MOUNT/etc/machine-id" ]; then
-	echo "Deleting /etc/machine-id"
+if [ $VERBOSE = 1 -a -s "$MOUNT/etc/machine-id" ]; then
+	echo "Truncating /etc/machine-id"
 fi
-if [ $DRYRUN != 1 -a -e "$MOUNT/etc/machine-id" ]; then
-	rm -f "$MOUNT/etc/machine-id"
+if [ $DRYRUN != 1 -a -s "$MOUNT/etc/machine-id" ]; then
+	sh -c ">$MOUNT/etc/machine-id"
+fi
+
+if [ $VERBOSE = 1 -a -e "$MOUNT/var/lib/dbus/machine-id" ]; then
+	echo "Deleting /var/lib/dbus/machine-id"
+fi
+if [ $DRYRUN != 1 -a -e "$MOUNT/var/lib/dbus/machine-id" ]; then
+	rm -f "$MOUNT/var/lib/dbus/machine-id"
 fi
 
 if [ $KEEP_SSH = 1 ]; then
