@@ -6,6 +6,7 @@
    for automatic support for SolarSSH.
  * Update to latest base framework.
  * Update to latest platform.
+ * Update to latest OS packages.
 
 ## 2018-11-01
 
