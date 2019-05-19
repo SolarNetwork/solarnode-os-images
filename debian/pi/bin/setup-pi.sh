@@ -240,11 +240,11 @@ setup_software () {
 # 		pkg_remove "$line"
 # 	done < /tmp/pkgs.txt
 	
-	# remove all packages NOT in manifest
+	# remove all packages NOT in manifest or not to add later
 	if [ -n "$PKG_KEEP" -a -e "$PKG_KEEP" ]; then
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
 		while IFS= read -r line; do
-			if ! grep -q "^$line$" "$PKG_KEEP"; then
+			if ! { grep -q "^$line$" "$PKG_KEEP" || grep -q "^$line$" "$PKG_ADD"; }; then
 				pkg_remove "$line"
 			fi
 		done < /tmp/pkgs.txt
