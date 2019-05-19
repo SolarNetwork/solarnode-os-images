@@ -12,10 +12,13 @@ DRY_RUN=""
 APP_USER="solar"
 APP_USER_PASS="solar"
 HOSTNAME="solarnode"
-PKG_KEEP="packages.txt"
+PKG_KEEP="conf/packages-keep.txt"
+PKG_ADD="conf/packages-add.txt"
 PI_USER="pi"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
+SNF_PKG_REPO="http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com"
+UPDATE_PKG_CACHE=""
 VERBOSE=""
 
 LOG="/var/tmp/setup-pi.log"
@@ -25,10 +28,27 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments>
 
+Setup script for a minimal SolarNode OS based on Raspbian (Debian 9).
+
+Start with a clean Raspbian image, e.g. 2019-04-08-raspbian-stretch-lite.img and boot
+a Pi with the image. Once booted, copy this bin directory and the sibling conf directory to the
+pi, e.g.
+
+  $ rsync -av bin conf pi@raspberrypi:/var/tmp/
+  
+Then on the Pi, execute this as the root user:
+
+  $ ssh pi@raspberrypi
+  $ sudo su -
+  $ cd /var/tmp
+  $ bin/setup-pi.sh
+
 Arguments:
  -h <hostname>          - the hostname to use; defaults to solarnode
  -k <package list file> - path to list of packages to keep; defaults to packages.txt
  -n                     - dry run; do not make any actual changes
+ -P                     - update package cache
+ -p <apt repo url>      - the SNF package repository to use
  -R <root dev label>    - the root device label; defaults to SOLARNODE
  -r <root dev>          - the root device; defaults to /dev/mmcblk0p2
  -U <user pass>         - the app user password; defaults to solar
@@ -38,11 +58,13 @@ Arguments:
 EOF
 }
 
-while getopts ":h:k:nR:r:U:u:V:v" opt; do
+while getopts ":h:k:nPp:R:r:U:u:V:v" opt; do
 	case $opt in
 		h) HOSTNAME="${OPTARG}";;
 		k) PKG_KEEP="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
+		P) UPDATE_PKG_CACHE='TRUE';;
+		p) SNF_PKG_REPO="${OPTARG}";;
 		R) ROOT_DEV_LABEL="${OPTARG}";;
 		r) ROOT_DEV="${OPTARG}";;
 		U) APP_USER_PASS="${OPTARG}";;
@@ -171,28 +193,71 @@ setup_user () {
 	fi
 }
 
+setup_apt () {
+	if apt-key list 2>/dev/null |grep -q packaging@solarnetwork.org.nz >/dev/null; then
+		echo 'SNF package repository GPG key already imported.'
+	else
+		echo -n 'Importing SNF package repository GPG key... '
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			curl -s "$SNF_PKG_REPO/KEY.gpg" |apt-key add -
+		fi
+	fi
+	
+	local updated=""
+	if [ -e /etc/apt/sources.list.d/solarnetwork.list ]; then
+		echo 'SNF package repository already configured.'
+	else
+		echo -n "Configuring SNF package repository $SNF_PKG_REPO... "
+		updated=1
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			echo "deb $SNF_PKG_REPO stretch main" >/etc/apt/sources.list.d/solarnetwork.list
+			echo "OK"
+		fi
+	fi
+	if [ -n "$updated" -o -n "$UPDATE_PKG_CACHE" ]; then
+		echo -n "Updating package cache... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			apt-get -q update >>$LOG 2>>$ERR_LOG
+			echo "OK"
+		fi
+	fi
+}
+
 setup_software () {
 	pkg_install localepurge
 	pkg_remove rsyslog
 	pkg_install busybox-syslogd
-	pkg_install oracle-java8-jdk
 	
 	# remove all development packages
-	dpkg-query --showformat='${Package}\n' --show |egrep -- '(^g\+\+|^gcc$|^gcc-4|^gcc-5|-dev$)' >/tmp/pkgs.txt
-	while IFS= read -r line; do
-		pkg_remove "$line"
-	done < /tmp/pkgs.txt
+# 	dpkg-query --showformat='${Package}\n' --show |egrep -- '(^g\+\+|^gcc$|^gcc-4|^gcc-5|-dev$)' >/tmp/pkgs.txt
+# 	while IFS= read -r line; do
+# 		pkg_remove "$line"
+# 	done < /tmp/pkgs.txt
 	
 	# remove all packages NOT in manifest
 	if [ -n "$PKG_KEEP" -a -e "$PKG_KEEP" ]; then
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
 		while IFS= read -r line; do
-			if grep -q "^$line$" "$PKG_KEEP"; then
-				true
-			else
+			if ! grep -q "^$line$" "$PKG_KEEP"; then
 				pkg_remove "$line"
 			fi
 		done < /tmp/pkgs.txt
+	fi
+	
+	# add all packages in manifest
+	if [ -n "$PKG_ADD" -a -e "$PKG_ADD" ]; then
+		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
+		while IFS= read -r line; do
+			if ! grep -q "^$line$" /tmp/pkgs.txt; then
+				pkg_install "$line"
+			fi
+		done < "$PKG_ADD"
 	fi
 }
 
@@ -203,6 +268,7 @@ setup_time () {
 setup_root_dev 
 setup_hostname
 setup_dns
+setup_apt
 setup_user
 setup_software
 setup_time
