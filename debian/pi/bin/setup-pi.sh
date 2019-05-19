@@ -265,6 +265,24 @@ setup_time () {
 	timedatectl set-ntp true
 }
 
+setup_expandfs () {
+	# the sn-expandfs service will look for this file on boot, and expand the root fs
+	if [ -e /boot/sn-expandfs ]; then
+		echo 'Boot time filesystem expand marker /boot/sn-expandfs already available.'
+	else
+		echo -n 'Creating boot time filesystem expand marker /boot/sn-expandfs... '
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			if touch /boot/sn-expandfs; then
+				echo 'OK'
+			else
+				echo 'ERROR'
+			fi
+		fi
+	fi
+}
+
 setup_root_dev 
 setup_hostname
 setup_dns
@@ -272,4 +290,5 @@ setup_apt
 setup_user
 setup_software
 setup_time
+setup_expandfs
 check_err
