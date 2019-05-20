@@ -285,6 +285,19 @@ setup_expandfs () {
 	fi
 }
 
+setup_swap () {
+	if [ -e /var/swap ]; then
+		echo -n 'Removing swap file /var/swap... '
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			swapoff -a
+			rm -f /var/swap
+			echo 'OK'
+		fi
+	fi
+}
+
 setup_root_dev 
 setup_hostname
 setup_dns
@@ -293,4 +306,5 @@ setup_user
 setup_software
 setup_time
 setup_expandfs
+setup_swap
 check_err
