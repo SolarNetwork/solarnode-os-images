@@ -259,6 +259,8 @@ setup_software () {
 			fi
 		done < "$PKG_ADD"
 	fi
+	
+	apt-get clean
 }
 
 setup_time () {
