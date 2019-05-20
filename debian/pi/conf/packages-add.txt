@@ -4,5 +4,6 @@ oracle-java8-jdk
 sn-iptables
 sn-pi
 sn-rxtx
+sn-solarssh
 sn-system
 sn-wifi
