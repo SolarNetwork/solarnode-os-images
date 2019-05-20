@@ -2,6 +2,7 @@ libmodbus
 mbpoll
 oracle-java8-jdk
 sn-iptables
+sn-osstat
 sn-pi
 sn-rxtx
 sn-solarssh
