@@ -183,6 +183,7 @@ setup_user () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
+			killall -u pi
 			deluser --remove-home "$PI_USER" >/dev/null 2>>$ERR_LOG && echo "OK" || { 
 				echo "ERROR"
 				echo "You might need to log out, then back in as the $APP_USER user to continue."
@@ -301,8 +302,8 @@ setup_swap () {
 setup_root_dev 
 setup_hostname
 setup_dns
-setup_apt
 setup_user
+setup_apt
 setup_software
 setup_time
 setup_expandfs
