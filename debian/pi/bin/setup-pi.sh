@@ -174,6 +174,8 @@ setup_user () {
 		else
 			useradd -m -U -G dialout,sudo -s /bin/bash "$APP_USER" 2>>$ERR_LOG && echo "OK" || echo "ERROR"
 			echo "$APP_USER:$APP_USER_PASS" |chpasswd 2>>$ERR_LOG
+			echo "You need to log out, then back in as the $APP_USER user to continue."
+			exit 0
 		fi
 	fi
 	
