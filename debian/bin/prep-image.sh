@@ -3,6 +3,8 @@
 DRYRUN=0
 VERBOSE=0
 KEEP_SSH=0
+SOLAR_HOMES="/home/solar /var/lib/solarnode"
+SOLAR_HOME_DIRS="/var /work"
 
 while getopts ":knv" opt; do
 	case $opt in
@@ -122,23 +124,18 @@ else
 	fi
 fi
 
-if [ -e "$MOUNT/home/solar/var" ]; then
-	if [ $VERBOSE = 1 ]; then
-		echo "Deleting SolarNode var dir..."
-	fi
-	if [ ! $DRYRUN = 1 ]; then
-		rm -rf "$MOUNT/home/solar/var"
-	fi
-fi
-
-if [ -e "$MOUNT/home/solar/work" ]; then
-	if [ $VERBOSE = 1 ]; then
-		echo "Deleting SolarNode work dir..."
-	fi
-	if [ ! $DRYRUN = 1 ]; then
-		rm -rf "$MOUNT/home/solar/work"
-	fi
-fi
+for h in $SOLAR_HOMES; do
+	for d in $SOLAR_HOME_DIRS; do
+		if [ -e "$MOUNT$h$d" ]; then
+			if [ $VERBOSE = 1 ]; then
+				echo "Deleting SolarNode home $d dir..."
+			fi
+			if [ ! $DRYRUN = 1 ]; then
+				rm -rf "$MOUNT$h$d"
+			fi
+		fi
+	done
+done
 
 if [ -e "$MOUNT/etc/wpa_supplicant/wpa_supplicant-wlan0.conf" ]; then
 	if [ $VERBOSE = 1 ]; then
