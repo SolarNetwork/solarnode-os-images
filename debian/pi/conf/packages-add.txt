@@ -8,3 +8,5 @@ sn-rxtx
 sn-solarssh
 sn-system
 sn-wifi
+solarnode-base
+solarnode-app-core
