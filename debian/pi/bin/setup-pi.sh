@@ -17,7 +17,7 @@ PKG_ADD="conf/packages-add.txt"
 PI_USER="pi"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
-SNF_PKG_REPO="http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com"
+SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
 UPDATE_PKG_CACHE=""
 VERBOSE=""
 
@@ -48,7 +48,12 @@ Arguments:
  -k <package list file> - path to list of packages to keep; defaults to packages.txt
  -n                     - dry run; do not make any actual changes
  -P                     - update package cache
- -p <apt repo url>      - the SNF package repository to use
+ -p <apt repo url>      - the SNF package repository to use; defaults to
+                          https://debian.repo.solarnetwork.org.nz;
+                          the staging repo can be used instead, which is
+                          https://debian.repo.stage.solarnetwork.org.nz;
+                          or the staging repo can be accessed directly for development as
+                          http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com
  -R <root dev label>    - the root device label; defaults to SOLARNODE
  -r <root dev>          - the root device; defaults to /dev/mmcblk0p2
  -U <user pass>         - the app user password; defaults to solar
