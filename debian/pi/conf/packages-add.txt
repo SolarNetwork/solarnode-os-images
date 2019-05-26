@@ -5,6 +5,7 @@ sn-iptables
 sn-osstat
 sn-pi
 sn-rxtx
+sn-solarpkg
 sn-solarssh
 sn-system
 sn-wifi
