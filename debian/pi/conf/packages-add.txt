@@ -9,5 +9,6 @@ sn-solarpkg
 sn-solarssh
 sn-system
 sn-wifi
+yasdishell
 solarnode-base
 solarnode-app-core
