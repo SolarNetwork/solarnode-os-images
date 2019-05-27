@@ -8,9 +8,9 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
-DRY_RUN=""
 APP_USER="solar"
 APP_USER_PASS="solar"
+DRY_RUN=""
 HOSTNAME="solarnode"
 PKG_KEEP="conf/packages-keep.txt"
 PKG_ADD="conf/packages-add.txt"
@@ -76,7 +76,7 @@ while getopts ":h:k:nPp:R:r:U:u:V:v" opt; do
 		u) APP_USER="${OPTARG}";;
 		V) PI_USER="${OPTARG}";;
 		v) VERBOSE='TRUE';;
-		?)
+		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
 			exit 1
@@ -144,8 +144,12 @@ setup_hostname () {
 	if hostnamectl status --static |grep -q "$HOSTNAME"; then
 		echo "Hostname already set to $HOSTNAME."
 	else
-		echo "Setting hostname to $HOSTNAME..."
-		sudo hostnamectl set-hostname "$HOSTNAME"
+		echo -n "Setting hostname to $HOSTNAME... "
+		if [ -z "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			sudo hostnamectl set-hostname "$HOSTNAME" && echo "OK"
+		fi
 	fi
 }
 
@@ -202,7 +206,7 @@ setup_user () {
 }
 
 setup_apt () {
-	if apt-key list 2>/dev/null |grep -q packaging@solarnetwork.org.nz >/dev/null; then
+	if apt-key list 2>/dev/null |grep -q "packaging@solarnetwork.org.nz" >/dev/null; then
 		echo 'SNF package repository GPG key already imported.'
 	else
 		echo -n 'Importing SNF package repository GPG key... '
