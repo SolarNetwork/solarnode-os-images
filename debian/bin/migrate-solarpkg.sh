@@ -1,0 +1,356 @@
+#!/usr/bin/env sh
+
+if [ $(id -u) -ne 0 ]; then
+	echo "This script must be run as root."
+	exit 1
+fi
+
+APP_USER="solar"
+DRY_RUN=""
+SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
+UPDATE_PKG_CACHE=""
+
+OLD_HOME="/home/solar"
+OLD_CONF="$OLD_HOME/conf"
+
+NEW_HOME="/var/lib/solarnode"
+NEW_CONF="/etc/solarnode"
+
+do_help () {
+	cat 1>&2 <<EOF
+Usage: $0 <arguments>
+
+Setup script to migrate an existing SolarNode deploying to one using Debian packages.
+
+Arguments:
+ -n                     - dry run; do not make any actual changes
+ -P                     - update package cache
+ -p <apt repo url>      - the SNF package repository to use; defaults to
+                          https://debian.repo.solarnetwork.org.nz;
+                          the staging repo can be used instead, which is
+                          https://debian.repo.stage.solarnetwork.org.nz;
+                          or the staging repo can be accessed directly for development as
+                          http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com
+ -u <username>          - the app username to use; defaults to solar
+EOF
+}
+
+while getopts ":nPp:u:" opt; do
+	case $opt in
+		n) DRY_RUN="1" ;;
+		P) UPDATE_PKG_CACHE='TRUE';;
+		p) SNF_PKG_REPO="${OPTARG}";;
+		u) APP_USER="${OPTARG}";;
+		*)
+			echo "Unknown argument ${OPTARG}"
+			do_help
+			exit 1
+	esac
+done
+
+shift $(($OPTIND - 1))
+
+export DEBIAN_FRONTEND=noninteractive
+
+# install package if not already installed
+pkg_install () {	
+	if dpkg -s $1 >/dev/null 2>/dev/null; then
+		echo "Package $1 already installed."
+	else
+		echo "Installing package $1..."
+		if [ -z "$DRY_RUN" ]; then
+			apt-get -qy install --no-install-recommends \
+				-o Dpkg::Options::="--force-confdef" \
+				-o Dpkg::Options::="--force-confnew" \
+				$1
+		fi
+	fi
+}
+
+# remove package if installed
+pkg_remove () {	
+	if dpkg -s $1 >/dev/null 2>/dev/null; then
+		echo "Removing package $1..."
+		if [ -z "$DRY_RUN" ]; then
+			apt-get -qy remove --purge $1
+		fi
+	else
+		echo "Package $1 already removed."
+	fi
+}
+
+# remove package if installed
+pkg_autoremove () {	
+		if [ -z "$DRY_RUN" ]; then
+			apt-get -qy autoremove --purge $1
+		fi
+}
+
+setup_apt () {
+	if apt-key list 2>/dev/null |grep -q "packaging@solarnetwork.org.nz" >/dev/null; then
+		echo 'SNF package repository GPG key already imported.'
+	else
+		echo -n 'Importing SNF package repository GPG key... '
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			curl -s "$SNF_PKG_REPO/KEY.gpg" |apt-key add -
+		fi
+	fi
+	
+	local updated=""
+	if [ -e /etc/apt/sources.list.d/solarnetwork.list ]; then
+		echo 'SNF package repository already configured.'
+	else
+		echo -n "Configuring SNF package repository $SNF_PKG_REPO... "
+		updated=1
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			echo "deb $SNF_PKG_REPO stretch main" >/etc/apt/sources.list.d/solarnetwork.list
+			echo "OK"
+		fi
+	fi
+	if [ -n "$updated" -o -n "$UPDATE_PKG_CACHE" ]; then
+		echo -n "Updating package cache... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			apt-get -q update >>$LOG 2>>$ERR_LOG
+			echo "OK"
+		fi
+	fi
+}
+
+# move_solar_resource src dest
+# move src to dest, making sure solar group has write access to dest parent directory;
+# if the destination ends with /, then move the contents of src to dest
+move_solar_resource () {
+	local src="$1"
+	local dest="$2"
+	local dest_dir="${dest%/*}"
+	local move_contents=""
+	local move_dest="$dest_dir"
+	if [ "${src##*/}" = "" ]; then
+		src="${src%/}"
+		dest_dir="$dest"
+		move_dest="$dest/${src##*/}"
+	fi
+	if [ "${dest##*/}" = "" ]; then
+		move_contents=1
+	fi
+	if [ -e "$src" ]; then
+		if [ ! -d "$dest_dir" ]; then
+			echo -n "Creating directory $dest_dir... "
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				mkdir -p "$dest_dir"
+				chgrp solar "$dest_dir"
+				chmod 770 "$dest_dir"
+				echo "OK"
+			fi
+		fi
+		if [ -n "$move_contents" ]; then
+			echo -n "Moving $src/* -> $dest... "
+		else
+			echo -n "Moving $src -> $dest_dir... "
+		fi
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		elif [ -n "$move_contents" ]; then
+			if [ -n "$(ls -1 $src)" ]; then
+				mv -n "$src"/* "$dest"
+			fi
+			echo "OK"
+		else
+			mv -n "$src" "$dest_dir" && echo "OK"
+		fi
+	fi
+}
+
+migrate_app_main () {
+	# migrate app/main JARs, but ONLY if another jar of same bundle ID doesn't
+	# already exist in destination
+	if [ -d "$OLD_HOME/app/main" -a -d "$NEW_HOME/app/main" ]; then
+		ls -1 "$NEW_HOME/app/main/" |cut -d'-' -f 1 >/tmp/app-main-new.list
+		local f=
+		local bid=
+		for f in $(ls -1 "$OLD_HOME/app/main"); do
+			bid=${f%-*}
+			if grep -q "^$bid"'$' /tmp/app-main-new.list >/dev/null; then
+				echo "Plugin $bid exists already in $NEW_HOME/app/main, not moving."
+			else
+				echo -n "Moving plugin $f -> $NEW_HOME/app/main... "
+				if [ -n "$DRY_RUN" ];then
+					echo "DRY RUN"
+				else
+					mv -n "$OLD_HOME/app/main/$f" "$NEW_HOME/app/main"
+					echo "OK"
+				fi
+			fi
+		done
+	fi
+}
+
+migrate_identity () {
+	# migrate identity.json
+	move_solar_resource "$OLD_CONF/identity.json" "$NEW_CONF/identity.json"
+
+	# migrate node.jks
+	move_solar_resource "$OLD_CONF/tls/node.jks" "$NEW_CONF/tls/node.jks"
+}
+
+migrate_settings () {
+	# migrate auto-settings.csv
+	move_solar_resource "$OLD_CONF/auto-settings.csv" "$NEW_CONF/auto-settings.csv"
+
+	# migrate auto-settings.csv
+	move_solar_resource "$OLD_CONF/services" "$NEW_CONF/services/"
+}
+
+migrate_data () {
+	# migrate database
+	move_solar_resource "$OLD_HOME/var/db-bak/" "$NEW_HOME/var"
+
+	# migrate backup settings
+	move_solar_resource "$OLD_HOME/var/settings-bak/" "$NEW_HOME/var"
+
+	# migrate backups
+	move_solar_resource "$OLD_HOME/var/backups/" "$NEW_HOME/var"
+}
+
+setup_software () {
+	pkg_install sn-solarssh
+	pkg_install sn-iptables
+	pkg_install sn-osstat
+	pkg_install sn-rxtx
+	pkg_install sn-solarpkg
+	pkg_install sn-solarssh
+	pkg_install sn-system
+	pkg_install yasdishell
+	pkg_install solarnode-base
+	pkg_install solarnode-app-core
+}
+
+cleanup () {
+	# remove old scripts
+	echo "Deleting scripts from /usr/share/solarnode that live in /usr/share/solarnode/bin now..."
+	if [ -n "$DRY_RUN" ]; then
+		find "/usr/share/solarnode" -maxdepth 1 -type f -name '*.sh' -print
+	else
+		find "/usr/share/solarnode" -maxdepth 1 -type f -name '*.sh' -print -delete
+	fi
+
+	# remove old runtime files
+	if [ -e "/run/solar/config.ini" ]; then
+		echo -n "Deleting /run/solar/config.ini runtime configuration... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -f "/run/solar/config.ini"
+			echo "OK"
+		fi
+	fi
+
+	# remove old runtime db
+	if [ -d "/run/solar/db" ]; then
+		echo -n "Deleting /run/solar/db runtime data... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -rf "/run/solar/db"
+			echo "OK"
+		fi
+	fi
+	
+	# remove old app dir
+	if [ -d "$OLD_HOME/app" -a -d "$NEW_HOME/app" ]; then
+		echo -n "Deleting $OLD_HOME/app that lives in $NEW_HOME/app now... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -rf "$OLD_HOME/app"
+			echo "OK"
+		fi
+	fi
+
+	# remove old lib dir
+	if [ -d "$OLD_HOME/lib" ]; then
+		echo -n "Deleting $OLD_HOME/lib that lives in /usr/lib now... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -rf "$OLD_HOME/lib"
+			echo "OK"
+		fi
+	fi
+
+	# remove old var dir
+	if [ -d "$OLD_HOME/var" -a -d $NEW_HOME/var ]; then
+		echo -n "Deleting $OLD_HOME/var that lives in $NEW_HOME/var now... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -rf "$OLD_HOME/var"
+			echo "OK"
+		fi
+	fi
+	
+	# remove old work dir
+	if [ -d "$OLD_HOME/work" ]; then
+		echo -n "Deleting $OLD_HOME/work that lives in $NEW_HOME/var/work now... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -rf "$OLD_HOME/work"
+			echo "OK"
+		fi
+	fi
+	
+	# remove old conf dir
+	if [ -d "$OLD_CONF" -a -d "$NEW_CONF" ]; then
+		echo -n "Deleting $OLD_CONF that lives in $NEW_CONF now... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -rf "$OLD_CONF"
+			echo "OK"
+		fi
+	fi
+	
+	# remove old config link
+	if [ -L "$OLD_HOME/config" -a -L "$NEW_HOME/config" ]; then
+		echo -n "Deleting $OLD_HOME/config link that lives in $NEW_HOME now... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -f "$OLD_HOME/config"
+			echo "OK"
+		fi
+	fi
+	
+	# remove $HOME/bin dir, replace with link to /var/lib/solarnode/bin
+	if [ -d "$OLD_HOME/bin" -a ! -L "$OLD_HOME/bin" -a -d "$NEW_HOME/bin" ]; then
+		echo -n "Linking $OLD_HOME/bin -> $NEW_HOME/bin... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -rf "$OLD_HOME/bin"
+			ln -s "$NEW_HOME/bin" "$OLD_HOME/bin"
+			echo "OK"
+		fi
+	fi
+}
+
+if [ -n "$DRY_RUN" ];then
+	systemctl stop solarnode.service >/dev/null 2>&1
+fi
+
+setup_apt
+migrate_identity
+migrate_settings
+migrate_data
+setup_software
+migrate_app_main
+cleanup
