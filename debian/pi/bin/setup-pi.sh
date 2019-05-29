@@ -145,7 +145,7 @@ setup_hostname () {
 		echo "Hostname already set to $HOSTNAME."
 	else
 		echo -n "Setting hostname to $HOSTNAME... "
-		if [ -z "$DRY_RUN" ]; then
+		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
 			sudo hostnamectl set-hostname "$HOSTNAME" && echo "OK"
