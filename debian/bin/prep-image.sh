@@ -126,12 +126,12 @@ fi
 
 for h in $SOLAR_HOMES; do
 	for d in $SOLAR_HOME_DIRS; do
-		if [ -e "$MOUNT$h$d" ]; then
+		if [ -d "$MOUNT$h$d" ]; then
 			if [ $VERBOSE = 1 ]; then
 				echo "Deleting SolarNode home $d dir..."
 			fi
 			if [ ! $DRYRUN = 1 ]; then
-				rm -rf "$MOUNT$h$d"
+				rm -rf "$MOUNT$h$d"/*
 			fi
 		fi
 	done
