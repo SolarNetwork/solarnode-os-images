@@ -5,10 +5,13 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
-APP_USER="solar"
 DRY_RUN=""
 SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
 UPDATE_PKG_CACHE=""
+DO_APP_MAIN=""
+PKG_DIR=""
+PKG_DOWNLOAD_LIST=""
+PKG_DOWNLOAD_USER=""
 
 OLD_HOME="/home/solar"
 OLD_CONF="$OLD_HOME/conf"
@@ -23,6 +26,8 @@ Usage: $0 <arguments>
 Setup script to migrate an existing SolarNode deploying to one using Debian packages.
 
 Arguments:
+ -d <pkg dir>           - path to a directory of *.deb files to install after core packages installed
+ -m                     - migrate the app/main directory
  -n                     - dry run; do not make any actual changes
  -P                     - update package cache
  -p <apt repo url>      - the SNF package repository to use; defaults to
@@ -31,16 +36,21 @@ Arguments:
                           https://debian.repo.stage.solarnetwork.org.nz;
                           or the staging repo can be accessed directly for development as
                           http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com
- -u <username>          - the app username to use; defaults to solar
+ -r <url file>          - a file with a list of URLs, one per line, to download into the -d 
+                          directory
+ -s <download username> - a username to use for authentication with -R
 EOF
 }
 
-while getopts ":nPp:u:" opt; do
+while getopts ":d:mnPp:r:s:" opt; do
 	case $opt in
+		d) PKG_DIR="${OPTARG}";;
+		m) DO_APP_MAIN="1";;
 		n) DRY_RUN="1" ;;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
-		u) APP_USER="${OPTARG}";;
+		r) PKG_DOWNLOAD_LIST="${OPTARG}";;
+		s) PKG_DOWNLOAD_USER="${OPTARG}";;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -52,18 +62,23 @@ shift $(($OPTIND - 1))
 
 export DEBIAN_FRONTEND=noninteractive
 
+# install package file
+pkg_install_file () {	
+	echo "Installing package $1..."
+	if [ -z "$DRY_RUN" ]; then
+		apt-get -qy install --no-install-recommends \
+			-o Dpkg::Options::="--force-confdef" \
+			-o Dpkg::Options::="--force-confnew" \
+			$1
+	fi
+}
+
 # install package if not already installed
 pkg_install () {	
 	if dpkg -s $1 >/dev/null 2>/dev/null; then
 		echo "Package $1 already installed."
 	else
-		echo "Installing package $1..."
-		if [ -z "$DRY_RUN" ]; then
-			apt-get -qy install --no-install-recommends \
-				-o Dpkg::Options::="--force-confdef" \
-				-o Dpkg::Options::="--force-confnew" \
-				$1
-		fi
+		pkg_install_file "$1"
 	fi
 }
 
@@ -116,8 +131,12 @@ setup_apt () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
-			apt-get -q update >>$LOG 2>>$ERR_LOG
-			echo "OK"
+			if apt-get -q update >/dev/null 2>&1; then
+				echo "OK"
+			else
+				echo "ERROR: apt-get update failed."
+				exit 1
+			fi
 		fi
 	fi
 }
@@ -193,6 +212,27 @@ migrate_app_main () {
 	fi
 }
 
+backup_old_home () {
+	local dest="/var/tmp/migrate-solarpkg-solar-home-backup.tgz"
+	if [ -d "$OLD_HOME" ]; then
+		if [ -e "$dest" ]; then
+			echo "NOT backing up $OLD_HOME because backup exists already at $dest."
+		else
+			echo -n "Backing up $OLD_HOME to $dest... "
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				if tar czf "$dest" -C "$OLD_HOME" .; then
+					echo "OK"
+				else
+					echo "ERROR: $?"
+					exit 1
+				fi
+			fi
+		fi
+	fi
+}
+
 migrate_identity () {
 	# migrate identity.json
 	move_solar_resource "$OLD_CONF/identity.json" "$NEW_CONF/identity.json"
@@ -221,6 +261,7 @@ migrate_data () {
 }
 
 setup_software () {
+	pkg_install whiptail
 	pkg_install sn-solarssh
 	pkg_install sn-iptables
 	pkg_install sn-osstat
@@ -231,6 +272,56 @@ setup_software () {
 	pkg_install yasdishell
 	pkg_install solarnode-base
 	pkg_install solarnode-app-core
+}
+
+download_custom_packages () {
+	if [ -n "$PKG_DOWNLOAD_LIST" ]; then
+		if [ ! -e "$PKG_DOWNLOAD_LIST" ]; then
+			echo "ERROR: package download list $PKG_DOWNLOAD_LIST not found."
+			exit 1
+		elif [ -z "$PKG_DIR" ]; then
+			echo "ERROR: package directory must be specified to download packages to (-d)."
+			exit 1
+		elif [ ! -d "$PKG_DIR" ]; then
+			echo "ERROR: package directory $PKG_DIR not found."
+			exit 1
+		fi
+		echo -n "Downloading packages from $PKG_DOWNLOAD_LIST to $PKG_DIR..."
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			cd "$PKG_DIR"
+			if [ -n "$PKG_DOWNLOAD_USER" ]; then
+				echo
+				echo "Enter package download password if prompted."
+				xargs -t -n 1 curl -s -u "$PKG_DOWNLOAD_USER" -O < "$PKG_DOWNLOAD_LIST" || exit 1
+			else
+				xargs -t -n 1 curl -s -O < "$PKG_DOWNLOAD_LIST" || exit 1
+			fi
+			cd "$OLDPWD"
+			local f=
+			for f in $(ls -1 "$PKG_DIR"/*.deb 2>/dev/null); do
+				if ! dpkg -c "$f" >/dev/null; then
+					echo "ERROR with downloaded package $f."
+					exit 1
+				fi
+			done
+		fi
+	fi
+}
+
+setup_custom_packages () {
+	local f=
+	if [ -n "$PKG_DIR" -a -d "$PKG_DIR" ]; then
+		for f in $(ls -1 "$PKG_DIR"/*.deb 2>/dev/null); do
+			if ! dpkg -c "$f" >/dev/null; then
+				echo "ERROR with downloaded package $f."
+				exit 1
+			else
+				pkg_install_file "$f"
+			fi
+		done
+	fi
 }
 
 cleanup () {
@@ -347,10 +438,17 @@ if [ -n "$DRY_RUN" ];then
 	systemctl stop solarnode.service >/dev/null 2>&1
 fi
 
+backup_old_home
+download_custom_packages
 setup_apt
 migrate_identity
 migrate_settings
 migrate_data
 setup_software
-migrate_app_main
+setup_custom_packages
+if [ -n "$DO_APP_MAIN" ]; then
+	migrate_app_main
+else
+	echo "NOT migrating $OLD_HOME/app/main to $NEW_HOME/app/main (no -m argument)."
+fi
 cleanup

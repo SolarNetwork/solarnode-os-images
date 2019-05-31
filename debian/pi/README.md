@@ -1,46 +1,55 @@
 # SolarNode Raspberry Pi Images
 
-These images were created for the the [Raspberry Pi][1], based 
-off the [Node OS Setup Guide - Raspbian][2].
+These images were created for the the [Raspberry Pi][1], based off the [Node OS Setup Guide -
+Raspbian][2]. The [setup-pi.sh][setup-pi] script automates the process.
 
-The image names are in the form `[OS]-[hardware]-[SD size]`. **Note**
-that you can copy the image to a _larger_ SD card, but you must then
-expand the root filesystem, or add another partition, to make use of
-the additional space.
+The image names are in the form `[OS]-[hardware]-[SD size]`. **Note** that you can copy the image to
+a _larger_ SD card, but you must then expand the root filesystem, or add another partition, to make
+use of the additional space.
 
-The *hardware* names are as follows:
+The **OS** names are as follows:
 
- * `pi` - the 512MB RAM version of the [Raspberry Pi][1] (Pi 2/3 supported
-   as well)
+ * `solarnodeos` - the current OS setup, using native Debian packages
+ * `solarnode` - the legacy OS setup; use `solarnodeos` unless you have a specific need for this
+
+The **hardware** names are as follows:
+
+ * `pi` - the 512MB RAM version of the [Raspberry Pi][1] (Pi 2/3 supported as well)
  	
 # How to copy images to SD card
 
+[Download the image][images] to your computer. You need a SD card adapter, either built into your
+computer or an external adapter (often these connect via USB). Then, as **root** copy the image
+onto a SD card. For example, using Linux the commands look something like the following:
+
 To restore these onto a SD card, run the following command:
 
-	# Copy image to SD card located at /dev/sde
-	xz -cd solarnode-deb8-pi-1GB.img.xz |dd of=/dev/sde bs=2M
-	
-	# Sync to disk
-	sync
-	
-	# Re-read the partition table
-	blockdev --rereadpt /dev/sde
-	
-	# Just to be sure, let's check the root filesystem
-	e2fsck -f /dev/sde2
+```sh
+# Copy image to SD card located at /dev/sde
+xz -cd solarnodeos-deb9-pi-1GB.img.xz |dd of=/dev/sde bs=2M
+
+# Sync to disk
+sync
+
+# Re-read the partition table
+blockdev --rereadpt /dev/sde
+
+# Just to be sure, let's check the root filesystem
+e2fsck -f /dev/sde2
+```
 
 # Network setup
 
-The OS will attempt to get a network connection using the built-in
-ethernet device, and use DHCP to obtain an IP address, using the hostname
-**solarnode**. Once the computer has fully booted after turning it on (this
-can take several minutes) check your DHCP server to find what IP address was
+The OS will attempt to get a network connection using the built-in ethernet device, and use DHCP to
+obtain an IP address, using the hostname **solarnode**. Once the computer has fully booted after
+turning it on (this can take several minutes) check your DHCP server to find what IP address was
 allocated.
 
 ## WiFi setup
 
-You can configure a WiFi connection by creating a `/boot/wpa_supplicant.conf` file
-with content like the following, using a plain-text password:
+You can run `dpkg-reconfigure sn-wifi` to configure the WiFi connection settings, which will prompt
+you for the WiFi network details. You can also create a `/boot/wpa_supplicant.conf` file _before
+booting up the Pi_ with content like the following, using a plain-text password:
 
 ```
 country=nz
@@ -50,16 +59,14 @@ network={
 }
 ```
 
-You can also use the `wpa_passphrase` tool to more securely store the password. Run the 
-tool like:
+You can also use the `wpa_passphrase` tool to more securely store the password. Run the tool like:
 
 ```sh
 wpa_passphrase "my wifi" "plain text password"
 ```
 
-It will output the full configuration, which includes a hashed version of the password.
-Note that when using this form, you must omit the quotes around the `psk=` value, like
-this:
+It will output the full configuration, which includes a hashed version of the password. Note that
+when using this form, you must omit the quotes around the `psk=` value, like this:
 
 ```
 country=nz
@@ -74,19 +81,19 @@ Note that the OS will move the `/boot/wpa_supplicant.conf` file to
 
 # Login user
 
-The system contains a default user of `solar` with password `solar`. That user can
-use `sudo` to become the `root` user. You can access the computer via `ssh` only.
+The system contains a default user of `solar` with password `solar`. That user can use `sudo` to
+become the `root` user. You can access the computer via `ssh` only.
 
 # Base SolarNode framework
 
-A base SolarNode framework has been installed in this image. Once the computer has
-fully booted and the SolarNode framework has started (this can take several minutes
-after the OS has booted and `ssh` is available) you can visit
+A base SolarNode framework has been installed in this image. Once the computer has fully booted and
+the SolarNode framework has started (this can take several minutes after the OS has booted and `ssh`
+is available) you can visit
 
 	http://solarnode/
 
-where `solarnode` is the IP address of the device, if your DNS server does not
-support using the _solarnode_ hostname.
+where `solarnode` is the IP address of the device, if your DNS server does not support using the
+_solarnode_ hostname.
 
 # Image partition info
 
@@ -101,15 +108,22 @@ Device     Boot Start     End Sectors  Size Id Type
 The image is copied with a `dd` command like this:
 
 ```
-dd if=/dev/sde conv=sync,noerror bs=4k count=243712 of=solarnode-deb8-pi-1GB.img
+dd if=/dev/sde conv=sync,noerror bs=4k count=243712 of=solarnodeos-deb9-pi-1GB.img
 ```
 
 The image is then compressed, and then a digest computed like this:
 
 ```
-xz -c -9 solarnode-deb8-pi-1GB.img >solarnode-deb8-pi-1GB.img.xz
-sha256sum solarnode-deb8-pi-1GB.img.xz >solarnode-deb8-pi-1GB.img.xz.sha256
+xz -c -9 solarnodeos-deb9-pi-1GB.img >solarnodeos-deb9-pi-1GB.img.xz
+sha256sum solarnodeos-deb9-pi-1GB.img.xz >solarnodeos-deb9-pi-1GB.img.xz.sha256
 ```
 
-  [1]: https://www.raspberrypi.org/
-  [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Raspbian
+These steps, and some additional cleanup tasks, are automated via a [prep-disk.sh][prep-disk] and
+[prep-image.sh][prep-image] scripts.
+
+[1]: https://www.raspberrypi.org/
+[2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Raspbian
+[images]: https://sourceforge.net/projects/solarnetwork/files/solarnode/pi/
+[setup-pi]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/pi/bin/setup-pi.sh
+[prep-disk]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/bin/prep-disk.sh
+[prep-image]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/bin/prep-image.sh
