@@ -1,7 +1,8 @@
 # SolarNode Raspberry Pi Images
 
 These images were created for the the [Raspberry Pi][1], based off the [Node OS Setup Guide -
-Raspbian][2]. The [setup-pi.sh][setup-pi] script automates the process.
+Raspbian][2]. The [setup-pi.sh][setup-pi] script automates the process, which is discussed
+in SolarNetwork Foundation's [SolarNode Raspbian Setup Guide][setup-guide].
 
 The image names are in the form `[OS]-[hardware]-[SD size]`. **Note** that you can copy the image to
 a _larger_ SD card, but you must then expand the root filesystem, or add another partition, to make
@@ -127,3 +128,4 @@ These steps, and some additional cleanup tasks, are automated via a [prep-disk.s
 [setup-pi]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/pi/bin/setup-pi.sh
 [prep-disk]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/bin/prep-disk.sh
 [prep-image]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/bin/prep-image.sh
+[setup-guide]: https://github.com/SolarNetworkFoundation/solarnetwork-ops/wiki/SolarNode-Raspbian-Setup-Guide
