@@ -118,11 +118,12 @@ xz -c -9 solarnodeos-deb9-pi-1GB.img >solarnodeos-deb9-pi-1GB.img.xz
 sha256sum solarnodeos-deb9-pi-1GB.img.xz >solarnodeos-deb9-pi-1GB.img.xz.sha256
 ```
 
-These steps, and some additional cleanup tasks, are automated via a [prep-disk.sh][prep-disk]
-script.
+These steps, and some additional cleanup tasks, are automated via a [prep-disk.sh][prep-disk] and
+[prep-image.sh][prep-image] scripts.
 
 [1]: https://www.raspberrypi.org/
 [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Raspbian
 [images]: https://sourceforge.net/projects/solarnetwork/files/solarnode/pi/
 [setup-pi]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/pi/bin/setup-pi.sh
 [prep-disk]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/bin/prep-disk.sh
+[prep-image]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/bin/prep-image.sh
