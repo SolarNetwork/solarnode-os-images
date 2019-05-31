@@ -9,6 +9,7 @@ DRY_RUN=""
 SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
 UPDATE_PKG_CACHE=""
 DO_APP_MAIN=""
+SKIP_REMOVE_OLD_PKGS=""
 PKG_DIR=""
 PKG_DOWNLOAD_LIST=""
 PKG_DOWNLOAD_USER=""
@@ -36,19 +37,21 @@ Arguments:
                           https://debian.repo.stage.solarnetwork.org.nz;
                           or the staging repo can be accessed directly for development as
                           http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com
+ -q                     - do not remove old packages
  -r <url file>          - a file with a list of URLs, one per line, to download into the -d 
                           directory
  -s <download username> - a username to use for authentication with -R
 EOF
 }
 
-while getopts ":d:mnPp:r:s:" opt; do
+while getopts ":d:mnPp:qr:s:" opt; do
 	case $opt in
 		d) PKG_DIR="${OPTARG}";;
 		m) DO_APP_MAIN="1";;
 		n) DRY_RUN="1" ;;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
+		q) SKIP_REMOVE_OLD_PKGS="1" ;;
 		r) PKG_DOWNLOAD_LIST="${OPTARG}";;
 		s) PKG_DOWNLOAD_USER="${OPTARG}";;
 		*)
@@ -260,6 +263,10 @@ migrate_data () {
 	move_solar_resource "$OLD_HOME/var/backups/" "$NEW_HOME/var"
 }
 
+remove_old_software () {
+	pkg_remove mbpoll
+}
+
 setup_software () {
 	pkg_install whiptail
 	pkg_install sn-solarssh
@@ -440,6 +447,9 @@ fi
 
 backup_old_home
 download_custom_packages
+if [ -z "$SKIP_REMOVE_OLD_PKGS" ]; then
+	remove_old_software
+fi
 setup_apt
 migrate_identity
 migrate_settings
