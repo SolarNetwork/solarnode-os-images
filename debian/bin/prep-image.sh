@@ -5,11 +5,15 @@ VERBOSE=0
 KEEP_SSH=0
 SOLAR_HOMES="/home/solar /var/lib/solarnode"
 SOLAR_HOME_DIRS="/var /work"
+JSON_TEMPLATE="../conf/image-info-template.json"
+JSON_ID_SUFFIX="$(date '+%Y%m%d')"
 
-while getopts ":knv" opt; do
+while getopts ":j:kns:v" opt; do
 	case $opt in
+		j) JSON_TEMPLATE="$OPTARG";;
 		k) KEEP_SSH=1 ;; 
 		n) DRYRUN=1 ;;
+		s) JSON_ID_SUFFIX="$OPTARG";;
 		v) VERBOSE=1 ;;
 	esac
 done
@@ -32,6 +36,24 @@ if [ ! `id -u` = 0 ]; then
 	echo "You must be root to run this script."
 	exit 3
 fi
+
+setup_json () {
+	local tmpl="$1"
+	local name="$2"
+	local suff="$3"
+	local jid="${name%%.*}-${suff}"
+	local usha="$(cat "$name.sha256" |cut -d' ' -f1)"
+	local ulen="$(stat --printf="%s" "$name")"
+	local sha="$(cat "$name.xz.sha256" |cut -d' ' -f1)"
+	local len="$(stat --printf="%s" "$name.xz")"
+	sed -e 's/"id":""/"id":"'"$jid"'"/' \
+		-e 's/"sha256":""/"sha256":"'"$sha"'"/' \
+		-e 's/"uncompressedSha256":""/"uncompressedSha256":"'"$usha"'"/' \
+		-e 's/"contentLength":0/"contentLength":'"$len"'/' \
+		-e 's/"uncompressedContentLength":0/"uncompressedContentLength":'"$ulen"'/' \
+		"$tmpl" > "${jid}.json"
+	echo "Saved JSON info to ${jid}.json"
+}
 
 LOOPDEV=`losetup -P -f --show $IMGNAME`
 if [ -z "$LOOPDEV" ]; then
@@ -184,6 +206,10 @@ if [ $VERBOSE = 1 ]; then
 fi
 if [ ! $DRYRUN = 1 ]; then
 	sha256sum "$IMGNAME.xz" >"$IMGNAME.xz.sha256"
+fi
+
+if [ -e "$JSON_TEMPLATE" ]; then
+	setup_json "$JSON_TEMPLATE" "$IMGNAME" "$JSON_ID_SUFFIX"
 fi
 
 if [ $VERBOSE ]; then

@@ -21,14 +21,7 @@ Initial release. Includes the following core SolarNode packages:
 | sn-wifi            | 1.0.0-1 | WiFi configuration management. |
 | yasdishell         | 1.8.1-Build9 | Interactive shell for SMA inverters using libyasdi. |
 | solarnode-base     | 1.0.1-1 | SolarNode application base framework. |
-| solarnode-app-core | 1.0.0-1 | SolarNode application core. |
-
-Additionally, contains the following Ecogy specific packages:
-
-| Package              | Version | Description |
-|:---------------------|:--------|:------------|
-| ecogy-solarnode-base | 1.0.0-1 | Ecogy SolarNode configuration and support. |
-| ecogy-system         | 1.0.0-1 | Ecogy OS configuration and support. |
+| solarnode-app-core | 1.0.1-2 | SolarNode application core. |
 
 
 # SolarNode Debian OS - Raspberry Pi
