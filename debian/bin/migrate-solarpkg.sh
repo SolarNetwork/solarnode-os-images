@@ -13,6 +13,7 @@ SKIP_REMOVE_OLD_PKGS=""
 PKG_DIR=""
 PKG_DOWNLOAD_LIST=""
 PKG_DOWNLOAD_USER=""
+PKG_DOWNLOAD_NETRC=""
 
 OLD_HOME="/home/solar"
 OLD_CONF="$OLD_HOME/conf"
@@ -25,6 +26,10 @@ do_help () {
 Usage: $0 <arguments>
 
 Setup script to migrate an existing SolarNode deploying to one using Debian packages.
+
+NOTE: use absolute paths in -d, -r, and -S arguments to avoid errors. Make sure the 
+order of packages in -r is the correct order in which things can be installed (i.e. early
+packages don't depend on later packages).
 
 Arguments:
  -d <pkg dir>           - path to a directory of *.deb files to install after core packages installed
@@ -40,19 +45,21 @@ Arguments:
  -q                     - do not remove old packages
  -r <url file>          - a file with a list of URLs, one per line, to download into the -d 
                           directory
- -s <download username> - a username to use for authentication with -R
+ -S <netrc file>        - a netrc file to use for authentication with -r
+ -s <download username> - a username to use for authentication with -r
 EOF
 }
 
-while getopts ":d:mnPp:qr:s:" opt; do
+while getopts ":d:mnPp:qr:S:s:" opt; do
 	case $opt in
 		d) PKG_DIR="${OPTARG}";;
 		m) DO_APP_MAIN="1";;
-		n) DRY_RUN="1" ;;
+		n) DRY_RUN="1";;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
 		q) SKIP_REMOVE_OLD_PKGS="1" ;;
 		r) PKG_DOWNLOAD_LIST="${OPTARG}";;
+		S) PKG_DOWNLOAD_NETRC="${OPTARG}";;
 		s) PKG_DOWNLOAD_USER="${OPTARG}";;
 		*)
 			echo "Unknown argument ${OPTARG}"
@@ -298,7 +305,9 @@ download_custom_packages () {
 			echo "DRY RUN"
 		else
 			cd "$PKG_DIR"
-			if [ -n "$PKG_DOWNLOAD_USER" ]; then
+			if [ -e "$PKG_DOWNLOAD_NETRC" ]; then
+				xargs -t -n 1 curl -s --netrc-file "$PKG_DOWNLOAD_NETRC" -O < "$PKG_DOWNLOAD_LIST" || exit 1
+			elif [ -n "$PKG_DOWNLOAD_USER" ]; then
 				echo
 				echo "Enter package download password if prompted."
 				xargs -t -n 1 curl -s -u "$PKG_DOWNLOAD_USER" -O < "$PKG_DOWNLOAD_LIST" || exit 1
@@ -307,7 +316,7 @@ download_custom_packages () {
 			fi
 			cd "$OLDPWD"
 			local f=
-			for f in $(ls -1 "$PKG_DIR"/*.deb 2>/dev/null); do
+			for f in $(ls -1tr "$PKG_DIR"/*.deb 2>/dev/null); do
 				if ! dpkg -c "$f" >/dev/null; then
 					echo "ERROR with downloaded package $f."
 					exit 1
@@ -320,7 +329,7 @@ download_custom_packages () {
 setup_custom_packages () {
 	local f=
 	if [ -n "$PKG_DIR" -a -d "$PKG_DIR" ]; then
-		for f in $(ls -1 "$PKG_DIR"/*.deb 2>/dev/null); do
+		for f in $(ls -1tr "$PKG_DIR"/*.deb 2>/dev/null); do
 			if ! dpkg -c "$f" >/dev/null; then
 				echo "ERROR with downloaded package $f."
 				exit 1
