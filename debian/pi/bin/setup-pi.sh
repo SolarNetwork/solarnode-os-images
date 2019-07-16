@@ -18,6 +18,7 @@ PI_USER="pi"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
 SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
+PKG_DIST="stretch"
 UPDATE_PKG_CACHE=""
 VERBOSE=""
 
@@ -54,6 +55,7 @@ Arguments:
                           https://debian.repo.stage.solarnetwork.org.nz;
                           or the staging repo can be accessed directly for development as
                           http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com
+ -q <pkg dist>          - the package distribution to use; defaults to 'stretch'
  -R <root dev label>    - the root device label; defaults to SOLARNODE
  -r <root dev>          - the root device; defaults to /dev/mmcblk0p2
  -U <user pass>         - the app user password; defaults to solar
@@ -63,13 +65,14 @@ Arguments:
 EOF
 }
 
-while getopts ":h:k:nPp:R:r:U:u:V:v" opt; do
+while getopts ":h:k:nPp:q:R:r:U:u:V:v" opt; do
 	case $opt in
 		h) HOSTNAME="${OPTARG}";;
 		k) PKG_KEEP="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
+		q) PKG_DIST="${OPTARG}";;
 		R) ROOT_DEV_LABEL="${OPTARG}";;
 		r) ROOT_DEV="${OPTARG}";;
 		U) APP_USER_PASS="${OPTARG}";;
@@ -102,7 +105,10 @@ pkg_install () {
 	else
 		echo "Installing package $1..."
 		if [ -z "$DRY_RUN" ]; then
-			apt-get -qy install --no-install-recommends $1
+			if ! apt-get -qy install --no-install-recommends $1; then
+				echo "Error installing package $1"
+				exit 1
+			fi
 		fi
 	fi
 }
@@ -226,7 +232,7 @@ setup_apt () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
-			echo "deb $SNF_PKG_REPO stretch main" >/etc/apt/sources.list.d/solarnetwork.list
+			echo "deb $SNF_PKG_REPO $PKG_DIST main" >/etc/apt/sources.list.d/solarnetwork.list
 			echo "OK"
 		fi
 	fi
