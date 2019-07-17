@@ -1,3 +1,11 @@
+# SolarNodeOS - Debian 10 Raspberry Pi
+
+This is a SolarNodeOS image based on the Debian 10 "buster" release.
+
+## 2019-07-17
+
+Initial release.
+
 # SolarNodeOS - Debian Rasperry Pi
 
 The way SolarNode OS images has changed to use native Debian packages. The filename

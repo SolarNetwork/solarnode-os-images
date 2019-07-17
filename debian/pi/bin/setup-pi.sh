@@ -29,7 +29,7 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments>
 
-Setup script for a minimal SolarNode OS based on Raspbian (Debian 9).
+Setup script for a minimal SolarNode OS based on Raspbian.
 
 Start with a clean Raspbian image, e.g. 2019-04-08-raspbian-stretch-lite.img and boot
 a Pi with the image. Once booted, copy this bin directory and the sibling conf directory to the
@@ -46,7 +46,8 @@ Then on the Pi, execute this as the root user:
 
 Arguments:
  -h <hostname>          - the hostname to use; defaults to solarnode
- -k <package list file> - path to list of packages to keep; defaults to packages.txt
+ -K <package list file> - path to list of packages to add; defaults to conf/packages-add.txt
+ -k <package list file> - path to list of packages to keep; defaults to conf/packages-keep.txt
  -n                     - dry run; do not make any actual changes
  -P                     - update package cache
  -p <apt repo url>      - the SNF package repository to use; defaults to
@@ -65,9 +66,10 @@ Arguments:
 EOF
 }
 
-while getopts ":h:k:nPp:q:R:r:U:u:V:v" opt; do
+while getopts ":h:K:k:nPp:q:R:r:U:u:V:v" opt; do
 	case $opt in
 		h) HOSTNAME="${OPTARG}";;
+		K) PKG_ADD="${OPTARG}";;
 		k) PKG_KEEP="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
 		P) UPDATE_PKG_CACHE='TRUE';;
