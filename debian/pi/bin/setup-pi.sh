@@ -43,6 +43,11 @@ Then on the Pi, execute this as the root user:
   $ sudo su -
   $ cd /var/tmp
   $ bin/setup-pi.sh
+  
+For Debian 10 development, execute this variation:
+
+  $ bin/setup-pi.sh -p http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com \
+    -q buster -k conf/packages-deb10-keep.txt -K conf/packages-deb10-add.txt  
 
 Arguments:
  -h <hostname>          - the hostname to use; defaults to solarnode
@@ -236,6 +241,9 @@ setup_apt () {
 		else
 			echo "deb $SNF_PKG_REPO $PKG_DIST main" >/etc/apt/sources.list.d/solarnetwork.list
 			echo "OK"
+			case $SNF_PKG_REPO in https*)
+				pkg_install apt-transport-https
+			esac
 		fi
 	fi
 	if [ -n "$updated" -o -n "$UPDATE_PKG_CACHE" ]; then
@@ -280,6 +288,7 @@ setup_software () {
 		done < "$PKG_ADD"
 	fi
 	
+	pkg_autoremove
 	apt-get clean
 }
 

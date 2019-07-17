@@ -134,6 +134,7 @@ liblocale-gettext-perl
 liblz4-1
 liblzma5
 libmnl0
+libmodbus
 libmount1
 libncurses6
 libncursesw6
@@ -208,6 +209,7 @@ login
 logrotate
 lsb-base
 mawk
+mbpoll
 mount
 multiarch-support
 nano
@@ -235,6 +237,15 @@ readline-common
 rsync
 sed
 sensible-utils
+sn-osstat
+sn-pi
+sn-rxtx
+sn-solarpkg
+sn-solarssh
+sn-system
+sn-wifi
+solarnode-app-core
+solarnode-base
 ssh
 sudo
 systemd

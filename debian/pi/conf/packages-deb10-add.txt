@@ -1,7 +1,6 @@
 libmodbus
 mbpoll
 openjdk-11-jre-headless
-sn-iptables
 sn-osstat
 sn-pi
 sn-rxtx
