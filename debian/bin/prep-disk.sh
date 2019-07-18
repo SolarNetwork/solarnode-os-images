@@ -54,12 +54,12 @@ if [ -n "$FAT_SIZE" ];then
 	tmp_data=$(mktemp -t fat-data-XXXXX.tgz)
 	echo "Saving $DISK$FAT_PART data -> $tmp_data"
 	if [ -z $DRYRUN ]; then
-		sudo tar czf $tmp_data -C $tmp_dir * || exit 1
+		sudo tar czf $tmp_data -C $tmp_dir . || exit 1
 	fi
 	
 	echo "Resizing $DISK$FAT_PART partition to $FAT_SIZE..."
 	if [ -z $DRYRUN ]; then
-		sudo umount $tmp_dir
+		sudo umount $tmp_dir || exit 1
 		echo "- $FAT_SIZE" |sudo sfdisk $DISK -N$FAT_PART --no-reread --no-tell-kernel --force
 		sudo partx -u $DISK
 	fi
@@ -69,6 +69,7 @@ if [ -n "$FAT_SIZE" ];then
 		sudo mkfs.fat -F 32 -n boot $DISK$FAT_PART || exit 1
 		sudo mount $DISK$FAT_PART $tmp_dir || exit 1
 		sudo tar xf $tmp_data -C $tmp_dir || exit 1
+		sudo umount $tmp_dir
 	fi
 fi
 
