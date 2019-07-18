@@ -98,6 +98,7 @@ libdebconfclient0
 libdevmapper1.02.1
 libedit2
 libelf1
+libevent-2.1-6
 libexpat1
 libext2fs2
 libfdisk1
@@ -188,6 +189,7 @@ libtinfo6
 libudev0
 libudev1
 libunistring2
+libutempter0
 libuuid1
 libwrap0
 libx11-6
@@ -245,6 +247,7 @@ sysvinit-utils
 tar
 tasksel
 tasksel-data
+tmux
 traceroute
 tzdata
 ucf
