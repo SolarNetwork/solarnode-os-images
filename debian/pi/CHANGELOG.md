@@ -2,14 +2,41 @@
 
 This is a SolarNodeOS image based on the Debian 10 "buster" release.
 
-## 2019-07-17
+## 2019-07-18
 
-Initial release.
+Initial release based on Debian 10 "buster". The major differences in this
+update from Debian 9 are:
+
+ * OpenJDK 11 replaces Oracle 8 JRE
+ * `nftables` replaces `iptables` for firewall
+ 
+Because of the change from Java 8 to 11, there might be unexpected issues in
+this release. Please test your application thoroughly and report any issues you
+find.
+ 
+Includes the following core SolarNode packages:
+
+| Package            | Version | Description |
+|:-------------------|:--------|:------------|
+| libmodbus          | 3.1.4-1 | Shared library used by `mbpoll`. |
+| mbpoll             | 1.4.11 | Command line utility to communicate with ModBus devices. | 
+| sn-nftables        | 1.0.0-1 | Firewall configuration. |
+| sn-osstat          | 1.0.0-1 | Support for OS statistic collection. |
+| sn-pi              | 1.0.0-1 | Raspberry Pi specific system configuration. |
+| sn-rxtx            | 1.0.0-1 | Support for librxtx in SolarNode. |
+| sn-solarpkg        | 1.0.2-1 | SolarNode package management support. |
+| sn-solarssh        | 1.0.0-1 | SolarSSH support. |
+| sn-system          | 1.0.0-1 | Core OS support for SolarNode. |
+| sn-wifi            | 1.0.0-1 | WiFi configuration management. |
+| yasdishell         | 1.8.1-Build9 | Interactive shell for SMA inverters using libyasdi. |
+| solarnode-base     | 1.1.0-1 | SolarNode application base framework. |
+| solarnode-app-core | 1.0.2-1 | SolarNode application core. |
+
 
 # SolarNodeOS - Debian Rasperry Pi
 
-The way SolarNode OS images has changed to use native Debian packages. The filename
-for them has changed to use _solarnodeos_ in place of _solarnode_.
+The way SolarNode OS images has changed to use native Debian packages. The
+filename for them has changed to use _solarnodeos_ in place of _solarnode_.
 
 ## 2019-05-30
 
@@ -17,7 +44,7 @@ Initial release. Includes the following core SolarNode packages:
 
 | Package            | Version | Description |
 |:-------------------|:--------|:------------|
-| libmodbus          | 1.0.0-2 | Shared library used by `mbpoll`. |
+| libmodbus          | 3.1.4-1 | Shared library used by `mbpoll`. |
 | mbpoll             | 1.4.11 | Command line utility to communicate with ModBus devices. | 
 | sn-iptables        | 1.0.0-2 | Firewall configuration. |
 | sn-osstat          | 1.0.0-1 | Support for OS statistic collection. |
