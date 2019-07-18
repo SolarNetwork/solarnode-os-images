@@ -1,5 +1,18 @@
 #!/usr/bin/env sh
 
+# Prepare a disk to minimize the partition sizes to fit on small media like SD cards.
+#
+# The default values are designed to make a 1GB Raspbian Debian 9 "stretch" image:
+#
+#   prep-disk-sh -d /dev/sde
+#
+# To make a 1GB Raspbian Debian 10 "buster" image, we have to shrink the /boot
+# partition which comes as 256M and then shrink/shift the / partition. The following
+# shrinks the /boot partition to 128M and / to 822M via an intermediate 840M:
+#
+#   prep-disk.sh -d /dev/sde -f 128M -g '-132M' -S 840M -s 822M -b 244224
+
+
 DRYRUN=
 VERBOSE=0
 DISK="/dev/sde"
@@ -7,6 +20,7 @@ OUTFILE=""
 OUTBLKS="243712"
 PART="2"
 SIZE="925696K"
+SIZE0=""
 FAT_PART="1"
 FAT_SIZE=""
 FAT_MOUNT=
@@ -23,6 +37,7 @@ while getopts ":b:d:F:f:g:kno:p:s:v" opt; do
 		n) DRYRUN=1 ;;
 		o) OUTFILE="$OPTARG" ;;
 		p) PART="$OPTARG" ;;
+		S) SIZE0="$OPTARG" ;;
 		s) SIZE="$OPTARG" ;;
 		v) VERBOSE=1 ;;
 	esac
@@ -73,9 +88,17 @@ if [ -n "$FAT_SIZE" ];then
 	fi
 fi
 
+if [ -n "$SIZE0" ]; then
+	echo "Resizing filesystem on $DISK$PART to $SIZE0..."
+	if [ -z "$DRYRUN" ]; then
+		sudo resize2fs -fp "$DISK$PART" "$SIZE0" || exit 1
+		sudo sync
+	fi
+fi
+
 echo "Resizing filesystem on $DISK$PART to $SIZE..."
 if [ -z "$DRYRUN" ]; then
-	sudo resize2fs -fp "$DISK$PART" "$SIZE"
+	sudo resize2fs -fp "$DISK$PART" "$SIZE" || exit 1
 	sudo sync
 fi
 
