@@ -5,13 +5,21 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
-DRY_RUN=""
-SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
-UPDATE_PKG_CACHE=""
 DO_APP_MAIN=""
+DRY_RUN=""
 PKG_DIR=""
 PKG_DOWNLOAD_LIST=""
 PKG_DOWNLOAD_USER=""
+PKG_DOWNLOAD_NETRC=""
+S3_REPO_ACCESS_SECRET=""
+S3_REPO_ACCESS_TOKEN=""
+S3_REPO_NAME="private-s3"
+S3_REPO_REGION="us-east-1"
+S3_REPO_SIGN_KEY="conf/private-repo.gpg"
+S3_REPO_URL=""
+SKIP_REMOVE_OLD_PKGS=""
+SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
+UPDATE_PKG_CACHE=""
 
 OLD_HOME="/home/solar"
 OLD_CONF="$OLD_HOME/conf"
@@ -21,12 +29,24 @@ NEW_CONF="/etc/solarnode"
 
 do_help () {
 	cat 1>&2 <<EOF
-Usage: $0 <arguments>
+Usage: $0 <arguments> [pkg1,...]
 
-Setup script to migrate an existing SolarNode deploying to one using Debian packages.
+Setup script to migrate an existing SolarNode deploying to one using Debian packages. Pass a list
+of Debian packages to install after all configuration is complete.
+
+NOTE: use absolute paths in -d, -r, and -S arguments to avoid errors. Make sure the 
+order of packages in -r is the correct order in which things can be installed (i.e. early
+packages don't depend on later packages).
 
 Arguments:
  -d <pkg dir>           - path to a directory of *.deb files to install after core packages installed
+ -E <s3 token>          - S3 repository access token
+ -e <s3 secret>         - S3 repository access secret
+ -F <s3 name>           - S3 repository configuration name; defaults to private-s3
+ -f <s3 region>         - S3 repository region; defaults to us-east-1
+ -G <s3 sign key>       - path to S3 repository signing public GPG key file; defaults to 
+                          conf/private-repo.gpg
+ -g <s3 url>            - S3 repository URL, for example s3://my-bucket/
  -m                     - migrate the app/main directory
  -n                     - dry run; do not make any actual changes
  -P                     - update package cache
@@ -36,20 +56,30 @@ Arguments:
                           https://debian.repo.stage.solarnetwork.org.nz;
                           or the staging repo can be accessed directly for development as
                           http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com
+ -q                     - do not remove old packages
  -r <url file>          - a file with a list of URLs, one per line, to download into the -d 
                           directory
- -s <download username> - a username to use for authentication with -R
+ -S <netrc file>        - a netrc file to use for authentication with -r
+ -s <download username> - a username to use for authentication with -r
 EOF
 }
 
-while getopts ":d:mnPp:r:s:" opt; do
+while getopts ":d:E:e:F:f:G:g:mnPp:qr:S:s:" opt; do
 	case $opt in
 		d) PKG_DIR="${OPTARG}";;
+		E) S3_REPO_ACCESS_TOKEN="${OPTARG}";;
+		e) S3_REPO_ACCESS_SECRET="${OPTARG}";;
+		F) S3_REPO_NAME="${OPTARG}";;
+		f) S3_REPO_REGION="${OPTARG}";;
+		G) S3_REPO_SIGN_KEY="${OPTARG}";;
+		g) S3_REPO_URL="${OPTARG}";;
 		m) DO_APP_MAIN="1";;
-		n) DRY_RUN="1" ;;
+		n) DRY_RUN="1";;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
+		q) SKIP_REMOVE_OLD_PKGS="1" ;;
 		r) PKG_DOWNLOAD_LIST="${OPTARG}";;
+		S) PKG_DOWNLOAD_NETRC="${OPTARG}";;
 		s) PKG_DOWNLOAD_USER="${OPTARG}";;
 		*)
 			echo "Unknown argument ${OPTARG}"
@@ -126,6 +156,9 @@ setup_apt () {
 			echo "OK"
 		fi
 	fi
+}
+
+refresh_pkg_cache () {
 	if [ -n "$updated" -o -n "$UPDATE_PKG_CACHE" ]; then
 		echo -n "Updating package cache... "
 		if [ -n "$DRY_RUN" ]; then
@@ -136,6 +169,52 @@ setup_apt () {
 			else
 				echo "ERROR: apt-get update failed."
 				exit 1
+			fi
+		fi
+	fi
+}
+
+setup_apt_s3 () {
+	if [ -n "$S3_REPO_ACCESS_SECRET" -a -n "$S3_REPO_ACCESS_TOKEN" -a -n "$S3_REPO_SIGN_KEY" -a -n "$S3_REPO_URL" ]; then
+		if [ ! -e "$S3_REPO_SIGN_KEY" ]; then
+			echo "ERROR: S3 package repository signing key file [$S3_REPO_SIGN_KEY] not found."
+			exit 1
+		fi
+		
+		pkg_install apt-transport-s3
+		
+		# import repository GPG signing key
+		local user="$(gpg "$S3_REPO_SIGN_KEY" 2>/dev/null |grep '^uid' |sed -e 's/uid *//')"
+		if apt-key list 2>/dev/null |grep -q "$user" >/dev/null; then
+			echo 'S3 package repository GPG key for [$user] already imported.'
+		else
+			echo -n "Importing S3 package repository GPG key for [$user]... "
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				cat "$S3_REPO_SIGN_KEY" |apt-key add -
+			fi
+		fi
+		
+		# configure S3 repo
+		if [ -e "/etc/apt/sources.list.d/${S3_REPO_NAME}.list" ]; then
+			echo "S3 package repository [$S3_REPO_NAME] already configured."
+		else
+			echo -n "Configuring S3 package repository $S3_REPO_NAME... "
+			updated=1
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				echo "deb $S3_REPO_URL stretch main" > "/etc/apt/sources.list.d/${S3_REPO_NAME}.list"
+				
+				local cred_file="/etc/apt/s3auth.conf"
+				cat /dev/null >"$cred_file"
+				chmod 600 "$cred_file"
+				echo "AccessKeyId = $S3_REPO_ACCESS_TOKEN" >>"$cred_file"
+				echo "SecretAccessKey = $S3_REPO_ACCESS_SECRET" >>"$cred_file"
+				echo "Region = $S3_REPO_REGION" >>"$cred_file"
+				echo "Token = ''" >>"$cred_file"
+				echo "OK"
 			fi
 		fi
 	fi
@@ -260,6 +339,10 @@ migrate_data () {
 	move_solar_resource "$OLD_HOME/var/backups/" "$NEW_HOME/var"
 }
 
+remove_old_software () {
+	pkg_remove mbpoll
+}
+
 setup_software () {
 	pkg_install whiptail
 	pkg_install sn-solarssh
@@ -291,7 +374,9 @@ download_custom_packages () {
 			echo "DRY RUN"
 		else
 			cd "$PKG_DIR"
-			if [ -n "$PKG_DOWNLOAD_USER" ]; then
+			if [ -e "$PKG_DOWNLOAD_NETRC" ]; then
+				xargs -t -n 1 curl -s --netrc-file "$PKG_DOWNLOAD_NETRC" -O < "$PKG_DOWNLOAD_LIST" || exit 1
+			elif [ -n "$PKG_DOWNLOAD_USER" ]; then
 				echo
 				echo "Enter package download password if prompted."
 				xargs -t -n 1 curl -s -u "$PKG_DOWNLOAD_USER" -O < "$PKG_DOWNLOAD_LIST" || exit 1
@@ -300,7 +385,7 @@ download_custom_packages () {
 			fi
 			cd "$OLDPWD"
 			local f=
-			for f in $(ls -1 "$PKG_DIR"/*.deb 2>/dev/null); do
+			for f in $(ls -1tr "$PKG_DIR"/*.deb 2>/dev/null); do
 				if ! dpkg -c "$f" >/dev/null; then
 					echo "ERROR with downloaded package $f."
 					exit 1
@@ -313,7 +398,7 @@ download_custom_packages () {
 setup_custom_packages () {
 	local f=
 	if [ -n "$PKG_DIR" -a -d "$PKG_DIR" ]; then
-		for f in $(ls -1 "$PKG_DIR"/*.deb 2>/dev/null); do
+		for f in $(ls -1tr "$PKG_DIR"/*.deb 2>/dev/null); do
 			if ! dpkg -c "$f" >/dev/null; then
 				echo "ERROR with downloaded package $f."
 				exit 1
@@ -322,6 +407,13 @@ setup_custom_packages () {
 			fi
 		done
 	fi
+}
+
+add_software () {
+	local pkg=
+	for pkg in "$@"; do
+		pkg_install "$pkg"
+	done
 }
 
 cleanup () {
@@ -440,7 +532,12 @@ fi
 
 backup_old_home
 download_custom_packages
+if [ -z "$SKIP_REMOVE_OLD_PKGS" ]; then
+	remove_old_software
+fi
 setup_apt
+setup_apt_s3
+refresh_pkg_cache
 migrate_identity
 migrate_settings
 migrate_data
@@ -451,4 +548,5 @@ if [ -n "$DO_APP_MAIN" ]; then
 else
 	echo "NOT migrating $OLD_HOME/app/main to $NEW_HOME/app/main (no -m argument)."
 fi
+add_software "$@"
 cleanup
