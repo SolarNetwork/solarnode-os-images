@@ -1,5 +1,6 @@
 libmodbus
 mbpoll
+ttf-bitstream-vera
 openjdk-11-jre-headless
 sn-nftables
 sn-osstat
