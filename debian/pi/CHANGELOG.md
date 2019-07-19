@@ -2,7 +2,7 @@
 
 This is a SolarNodeOS image based on the Debian 10 "buster" release.
 
-## 2019-07-18
+## 2019-07-19
 
 Initial release based on Debian 10 "buster". The major differences in this
 update from Debian 9 are:
