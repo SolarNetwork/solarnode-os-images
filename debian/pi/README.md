@@ -98,7 +98,7 @@ _solarnode_ hostname.
 
 # Image partition info
 
-The 1GB images are paritioned like this:
+The Debian 9 1GB images are partitioned like this:
 
 ```
 Device     Boot Start     End Sectors  Size Id Type
@@ -106,10 +106,22 @@ Device     Boot Start     End Sectors  Size Id Type
 /dev/sde2       98304 1949695 1851392  904M 83 Linux
 ```
 
+The Debian 10 1GB images are partitioned like this:
+
+```
+Device     Boot  Start     End Sectors  Size Id Type
+/dev/sde1         8192  139263  131072   64M  c W95 FAT32 (LBA)
+/dev/sde2       139264 1953791 1814528  886M 83 Linux
+```
+
 The image is copied with a `dd` command like this:
 
 ```
+# Debian 9
 dd if=/dev/sde conv=sync,noerror bs=4k count=243712 of=solarnodeos-deb9-pi-1GB.img
+
+# Debian 10
+dd if=/dev/sde conv=sync,noerror bs=4k count=244224 of=solarnodeos-deb10-pi-1GB.img
 ```
 
 The image is then compressed, and then a digest computed like this:
