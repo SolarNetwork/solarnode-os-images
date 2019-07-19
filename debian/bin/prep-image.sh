@@ -1,5 +1,15 @@
 #!/usr/bin/env sh
 
+# Tidy up a SolarNode OS image file in preparation for releasing the image
+# to the general public. A tpyical invocation looks like:
+#
+#   prep-image.sh -v -j ../conf/image-info-template.json -s 20190719 \
+#     solarnodeos-deb10-pi-1GB.img
+#
+# The output is a xz-compressed copy of the source image file, SHA-256
+# digests of the source and output files, and a JSON metadata file
+# suitable for using with SolarNode Image Maker.
+
 DRYRUN=0
 VERBOSE=0
 KEEP_SSH=0
@@ -69,7 +79,7 @@ elif [ $VERBOSE = 1 ]; then
 	echo "Loop device: $LOOPPART"
 fi
 
-MOUNT=/mnt/SOLARNODE
+MOUNT=$(mktemp -d -t sn-XXXXX)
 mount "$LOOPPART" "$MOUNT"
 if [ $VERBOSE = 1 ]; then
 	echo "Mounted $LOOPPART on $MOUNT"
@@ -178,6 +188,7 @@ if [ -n "$(find $MOUNT/var/local -maxdepth 1 -name 'solarnode-expandfs.saved*' -
 fi
 
 umount "$MOUNT"
+rmdir "$MOUNT"
 losetup -d $LOOPDEV
 
 if [ $VERBOSE = 1 ]; then
