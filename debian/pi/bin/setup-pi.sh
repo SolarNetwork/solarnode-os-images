@@ -327,6 +327,16 @@ setup_swap () {
 	fi
 }
 
+setup_busybox_links () {
+	echo -n 'Installing busybox app links... '
+	if [ -n "$DRY_RUN" ]; then
+		echo 'DRY RUN'
+	else
+		busybox --install -s
+		echo 'OK'
+	fi
+}
+
 setup_root_dev 
 setup_hostname
 setup_dns
@@ -336,4 +346,5 @@ setup_software
 setup_time
 setup_expandfs
 setup_swap
+setup_busybox_links
 check_err
