@@ -29,7 +29,7 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments>
 
-Setup script for a minimal SolarNode OS based on Raspbian (Debian 9).
+Setup script for a minimal SolarNode OS based on Raspbian.
 
 Start with a clean Raspbian image, e.g. 2019-04-08-raspbian-stretch-lite.img and boot
 a Pi with the image. Once booted, copy this bin directory and the sibling conf directory to the
@@ -43,10 +43,16 @@ Then on the Pi, execute this as the root user:
   $ sudo su -
   $ cd /var/tmp
   $ bin/setup-pi.sh
+  
+For Debian 10 development, execute this variation:
+
+  $ bin/setup-pi.sh -p http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com \
+    -q buster -k conf/packages-deb10-keep.txt -K conf/packages-deb10-add.txt  
 
 Arguments:
  -h <hostname>          - the hostname to use; defaults to solarnode
- -k <package list file> - path to list of packages to keep; defaults to packages.txt
+ -K <package list file> - path to list of packages to add; defaults to conf/packages-add.txt
+ -k <package list file> - path to list of packages to keep; defaults to conf/packages-keep.txt
  -n                     - dry run; do not make any actual changes
  -P                     - update package cache
  -p <apt repo url>      - the SNF package repository to use; defaults to
@@ -65,9 +71,10 @@ Arguments:
 EOF
 }
 
-while getopts ":h:k:nPp:q:R:r:U:u:V:v" opt; do
+while getopts ":h:K:k:nPp:q:R:r:U:u:V:v" opt; do
 	case $opt in
 		h) HOSTNAME="${OPTARG}";;
+		K) PKG_ADD="${OPTARG}";;
 		k) PKG_KEEP="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
 		P) UPDATE_PKG_CACHE='TRUE';;
@@ -234,6 +241,9 @@ setup_apt () {
 		else
 			echo "deb $SNF_PKG_REPO $PKG_DIST main" >/etc/apt/sources.list.d/solarnetwork.list
 			echo "OK"
+			case $SNF_PKG_REPO in https*)
+				pkg_install apt-transport-https
+			esac
 		fi
 	fi
 	if [ -n "$updated" -o -n "$UPDATE_PKG_CACHE" ]; then
@@ -278,6 +288,7 @@ setup_software () {
 		done < "$PKG_ADD"
 	fi
 	
+	pkg_autoremove
 	apt-get clean
 }
 
@@ -316,6 +327,16 @@ setup_swap () {
 	fi
 }
 
+setup_busybox_links () {
+	echo -n 'Installing busybox app links... '
+	if [ -n "$DRY_RUN" ]; then
+		echo 'DRY RUN'
+	else
+		busybox --install -s
+		echo 'OK'
+	fi
+}
+
 setup_root_dev 
 setup_hostname
 setup_dns
@@ -325,4 +346,5 @@ setup_software
 setup_time
 setup_expandfs
 setup_swap
+setup_busybox_links
 check_err
