@@ -15,11 +15,13 @@ The *hardware* names are as follows:
  	
 # How to copy images to SD card
 
-To restore these onto a SD card, run the following command:
+[Download the image][images] to your computer. You need a SD card adapter, either built into your
+computer or an external adapter (often these connect via USB). Then, as **root** copy the image
+onto a SD card. For example, using Linux the commands look something like the following:
 
 ```shell
 # Copy image to SD card located at /dev/sde
-xz -cd solarnode-deb8.9-ebox3300mx-1GB.img.xz |dd of=/dev/sde bs=2M
+xz -cd solarnodeos-deb8-ebox3300mx-1GB.img.xz |dd of=/dev/sde bs=2M
 
 # Sync to disk
 sync
@@ -38,6 +40,41 @@ ethernet device, and use DHCP to obtain an IP address, using the hostname
 **solarnode**. Once the computer has fully booted after turning it on (this
 can take several minutes) check your DHCP server to find what IP address was
 allocated.
+
+## WiFi setup
+
+You can run `dpkg-reconfigure sn-wifi` to configure the WiFi connection settings, which will prompt
+you for the WiFi network details. You can also create a `/boot/wpa_supplicant.conf` file _before
+booting up the Pi_ with content like the following, using a plain-text password:
+
+```
+country=nz
+network={
+	ssid="my wifi"
+	psk="plain text password here"
+}
+```
+
+You can also use the `wpa_passphrase` tool to more securely store the password. Run the tool like:
+
+```sh
+wpa_passphrase "my wifi" "plain text password"
+```
+
+It will output the full configuration, which includes a hashed version of the password. Note that
+when using this form, you must omit the quotes around the `psk=` value, like this:
+
+```
+country=nz
+network={
+	ssid="my wifi"
+	psk=6a24edf1592aec4465271b7dcd204601b6e78df3186ce1a62a31f40ae9630702
+}
+```
+
+Note that the OS will move the `/boot/wpa_supplicant.conf` file to 
+`/etc/wpa_supplicant/wpa_supplicant-wlan0.conf` when it boots up. 
+
 
 # Login user
 
@@ -68,17 +105,22 @@ Device     Boot Start     End Sectors  Size Id Type
 The image is copied with a `dd` command like this:
 
 ```
-dd if=/dev/sde conv=sync,noerror bs=4k count=244224 of=solarnode-deb8.9-ebox3300mx-1GB.img
+dd if=/dev/sde conv=sync,noerror bs=4k count=244224 of=solarnodeos-deb8-ebox3300mx-1GB.img
 ```
 
 The image is then compressed, and then a digest computed like this:
 
 ```
-xz -c -9 solarnode-deb8.9-ebox3300mx-1GB.img >solarnode-deb8.9-ebox3300mx-1GB.img.xz
-sha256sum solarnode-deb8.9-ebox3300mx-1GB.img.xz >solarnode-deb8.9-ebox3300mx-1GB.img.xz.sha256
+xz -c -9 solarnode-deb8.9-ebox3300mx-1GB.img >solarnodeos-deb8-ebox3300mx-1GB.img.xz
+sha256sum solarnode-deb8.9-ebox3300mx-1GB.img.xz >solarnodeos-deb8-ebox3300mx-1GB.img.xz.sha256
 ```
 
+These steps, and some additional cleanup tasks, are automated via a [prep-disk.sh][prep-disk] and
+[prep-image.sh][prep-image] scripts.
 
-  [1]: http://www.compactpc.com.tw/ebox-3300MX.htm
-  [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Debian-8
 
+[1]: http://www.compactpc.com.tw/ebox-3300MX.htm
+[2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Debian-8
+[images]: https://sourceforge.net/projects/solarnetwork/files/solarnode/ebox/
+[prep-disk]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/bin/prep-disk.sh
+[prep-image]: https://github.com/SolarNetwork/solarnode-os-images/blob/master/debian/bin/prep-image.sh
