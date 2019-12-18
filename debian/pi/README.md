@@ -23,8 +23,6 @@ The **hardware** names are as follows:
 computer or an external adapter (often these connect via USB). Then, as **root** copy the image
 onto a SD card. For example, using Linux the commands look something like the following:
 
-To restore these onto a SD card, run the following command:
-
 ```sh
 # Copy image to SD card located at /dev/sde
 xz -cd solarnodeos-deb9-pi-1GB.img.xz |dd of=/dev/sde bs=2M
