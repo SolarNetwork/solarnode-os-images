@@ -1,5 +1,29 @@
 # SolarNode Debian OS - eBox
 
+## 20190-12-18
+
+ * Update to latest Jessie 8.11
+ * Convert to SolarNode OS style.
+
+Includes the following core SolarNode OS packages:
+
+| Package            | Version | Description |
+|:-------------------|:--------|:------------|
+| libmodbus          | 3.1.4-1 | Shared library used by `mbpoll`. |
+| mbpoll             | 1.4.11  | Command line utility to communicate with ModBus devices. | 
+| sn-iptables        | 1.0.0-2 | Firewall configuration. |
+| sn-osstat          | 1.0.0-1 | Support for OS statistic collection. |
+| sn-pi              | 1.0.0-1 | Raspberry Pi specific system configuration. |
+| sn-rxtx            | 1.0.0-1 | Support for librxtx in SolarNode. |
+| sn-solarpkg        | 1.0.2-1 | SolarNode package management support. |
+| sn-solarssh        | 1.0.0-1 | SolarSSH support. |
+| sn-system          | 1.0.0-1 | Core OS support for SolarNode. |
+| sn-wifi            | 1.0.0-3 | Core OS support for SolarNode. |
+| yasdishell         | 1.8.1-Build9 | Interactive shell for SMA inverters using libyasdi. |
+| solarnode-base     | 1.5.1-1 | SolarNode application base framework. |
+| solarnode-app-core | 1.4.0-1 | SolarNode application core. |
+
+
 ## 2017-12-11
 
  * Update to latest Jessie 8.10
