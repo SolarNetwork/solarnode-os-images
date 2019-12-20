@@ -17,6 +17,10 @@
 #   prep-disk.sh -d /dev/sde -f 96M -g '-164M' -s 854M -b 244224
 #   prep-disk.sh -d /dev/sde -f 64M -g '-196M' -s 886M -b 244224
 #
+# Or, for 1329M root partition without moving /boot:
+#
+#   prep-disk.sh -d /dev/sde -s 1329M -b 357632
+#
 # A loopback device can be used if you specify the -P argument like '-P p'
 # so the partition names correctly resolve like "p0" and "p1".
 

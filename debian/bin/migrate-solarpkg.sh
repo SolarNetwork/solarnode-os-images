@@ -19,6 +19,7 @@ S3_REPO_SIGN_KEY="conf/private-repo.gpg"
 S3_REPO_URL=""
 SKIP_REMOVE_OLD_PKGS=""
 SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
+PKG_DIST="stretch"
 UPDATE_PKG_CACHE=""
 
 OLD_HOME="/home/solar"
@@ -49,6 +50,7 @@ Arguments:
  -g <s3 url>            - S3 repository URL, for example s3://my-bucket/
  -m                     - migrate the app/main directory
  -n                     - dry run; do not make any actual changes
+ -N <dist>              - SNF package repository distribution; defaults to "stretch"
  -P                     - update package cache
  -p <apt repo url>      - the SNF package repository to use; defaults to
                           https://debian.repo.solarnetwork.org.nz;
@@ -64,7 +66,7 @@ Arguments:
 EOF
 }
 
-while getopts ":d:E:e:F:f:G:g:mnPp:qr:S:s:" opt; do
+while getopts ":d:E:e:F:f:G:g:mnN:Pp:qr:S:s:" opt; do
 	case $opt in
 		d) PKG_DIR="${OPTARG}";;
 		E) S3_REPO_ACCESS_TOKEN="${OPTARG}";;
@@ -75,6 +77,7 @@ while getopts ":d:E:e:F:f:G:g:mnPp:qr:S:s:" opt; do
 		g) S3_REPO_URL="${OPTARG}";;
 		m) DO_APP_MAIN="1";;
 		n) DRY_RUN="1";;
+		N) PKG_DIST="${OPTARG}";;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
 		q) SKIP_REMOVE_OLD_PKGS="1" ;;
@@ -152,7 +155,7 @@ setup_apt () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
-			echo "deb $SNF_PKG_REPO stretch main" >/etc/apt/sources.list.d/solarnetwork.list
+			echo "deb $SNF_PKG_REPO $PKG_DIST main" >/etc/apt/sources.list.d/solarnetwork.list
 			echo "OK"
 		fi
 	fi
@@ -205,7 +208,7 @@ setup_apt_s3 () {
 			if [ -n "$DRY_RUN" ]; then
 				echo "DRY RUN"
 			else
-				echo "deb $S3_REPO_URL stretch main" > "/etc/apt/sources.list.d/${S3_REPO_NAME}.list"
+				echo "deb $S3_REPO_URL $PKG_DIST main" > "/etc/apt/sources.list.d/${S3_REPO_NAME}.list"
 				
 				local cred_file="/etc/apt/s3auth.conf"
 				cat /dev/null >"$cred_file"

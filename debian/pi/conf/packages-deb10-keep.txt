@@ -30,6 +30,7 @@ e2fsprogs
 fake-hwclock
 fbset
 fdisk
+findutils
 firmware-atheros
 firmware-brcm80211
 firmware-libertas
