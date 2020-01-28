@@ -337,6 +337,15 @@ setup_busybox_links () {
 	fi
 }
 
+setup_startup_screen () {
+	if grep -q "logo.nologo" /boot/cmdline.txt; then
+		echo "Raspberry logos on screen disabled in /boot/cmdline.txt already."
+	else
+		echo "Disabling raspberry logos on screen in /boot/cmdline.txt..."
+		sed -i 's/$/ quiet logo.nologo/' /boot/cmdline.txt
+	fi
+}
+
 setup_root_dev 
 setup_hostname
 setup_dns
@@ -347,4 +356,5 @@ setup_time
 setup_expandfs
 setup_swap
 setup_busybox_links
+setup_startup_screen
 check_err
