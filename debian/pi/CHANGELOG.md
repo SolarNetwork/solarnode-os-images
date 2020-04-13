@@ -25,6 +25,30 @@ Includes the following core SolarNode packages:
 | solarnode-base     | 1.5.2-1 | SolarNode application base framework. |
 | yasdishell         | 1.8.1-Build9 | Interactive shell for SMA inverters using libyasdi. |
 
+## 2020-01-28
+
+Updates the base OS to the Debian 10.2 release and updates the core SolarNode
+packages. This image requires a 2GB SD card at a minimum.
+
+Includes the following core SolarNode packages:
+
+| Package            | Version | Description |
+|:-------------------|:--------|:------------|
+| libmodbus          | 3.1.4-1 | Shared library used by `mbpoll`. |
+| mbpoll             | 1.4.11-1 | Command line utility to communicate with Modbus devices. | 
+| sn-nftables        | 1.1.0-1 | Firewall configuration. |
+| sn-osstat          | 1.1.0-1 | Support for OS statistic collection. |
+| sn-pi              | 1.1.0-1 | Raspberry Pi specific system configuration. |
+| sn-rxtx            | 1.0.1-1 | Support for librxtx in SolarNode. |
+| sn-solarpkg        | 1.0.3-1 | SolarNode package management support. |
+| sn-solarssh        | 1.0.0-1 | SolarSSH support. |
+| sn-system          | 1.1.1-1 | Core OS support for SolarNode. |
+| sn-wifi            | 1.0.0-1 | WiFi configuration management. |
+| yasdishell         | 1.8.1-Build9 | Interactive shell for SMA inverters using libyasdi. |
+| solarnode-app-core | [1.5.0-1][solarnode-app-core-log] | SolarNode core application. |
+| solarnode-base     | [1.5.2-1][solarnode-base-log] | SolarNode base platform. |
+
+
 ## 2019-10-25
 
 Updates the base OS to the Debian 10.1 release and updates the core SolarNode
@@ -221,3 +245,5 @@ These images have been created without native Debian packages.
  * Add configuration to limit journald log to 10M
  * Add configuration systemd to not generate core dumps
 
+[solarnode-app-core-log]: https://github.com/SolarNetwork/solarnetwork-build/blob/master/solarnode-deploy/generic/CHANGELOG.md
+[solarnode-base-log]: https://github.com/SolarNetwork/solarnetwork-build/blob/master/solarnode-deploy/equinox/CHANGELOG.md
