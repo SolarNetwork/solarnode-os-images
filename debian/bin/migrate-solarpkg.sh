@@ -135,6 +135,7 @@ pkg_autoremove () {
 }
 
 setup_apt () {
+	pkg_install apt-transport-https
 	if apt-key list 2>/dev/null |grep -q "packaging@solarnetwork.org.nz" >/dev/null; then
 		echo 'SNF package repository GPG key already imported.'
 	else
