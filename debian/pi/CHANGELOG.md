@@ -21,8 +21,8 @@ Includes the following core SolarNode packages:
 | sn-solarssh        | 1.0.0-1 | SolarSSH support. |
 | sn-system          | 1.1.1-1 | Core OS support for SolarNode. |
 | sn-wifi            | 1.0.0-1 | WiFi configuration management. |
-| solarnode-app-core | 1.7.0-1 | SolarNode application core. |
-| solarnode-base     | 1.5.2-1 | SolarNode application base framework. |
+| solarnode-app-core | [1.7.0-1][solarnode-app-core-log] | SolarNode application core. |
+| solarnode-base     | [1.5.2-1][solarnode-base-log] | SolarNode application base framework. |
 | yasdishell         | 1.8.1-Build9 | Interactive shell for SMA inverters using libyasdi. |
 
 ## 2020-01-28

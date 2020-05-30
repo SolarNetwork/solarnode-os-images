@@ -135,6 +135,7 @@ pkg_autoremove () {
 }
 
 setup_apt () {
+	pkg_install apt-transport-https
 	if apt-key list 2>/dev/null |grep -q "packaging@solarnetwork.org.nz" >/dev/null; then
 		echo 'SNF package repository GPG key already imported.'
 	else
@@ -189,7 +190,7 @@ setup_apt_s3 () {
 		# import repository GPG signing key
 		local user="$(gpg "$S3_REPO_SIGN_KEY" 2>/dev/null |grep '^uid' |sed -e 's/uid *//')"
 		if apt-key list 2>/dev/null |grep -q "$user" >/dev/null; then
-			echo 'S3 package repository GPG key for [$user] already imported.'
+			echo "S3 package repository GPG key for [$user] already imported."
 		else
 			echo -n "Importing S3 package repository GPG key for [$user]... "
 			if [ -n "$DRY_RUN" ]; then
