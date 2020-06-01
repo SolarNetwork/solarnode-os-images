@@ -1,6 +1,8 @@
 libmodbus
 mbpoll
 openjdk-11-jre-headless
+unzip
+usbutils
 sn-iptables
 sn-osstat
 sn-rxtx

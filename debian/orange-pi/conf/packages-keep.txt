@@ -172,6 +172,7 @@ libtext-wrapi18n-perl
 libtinfo5
 libudev1
 libunistring0
+libusb-1.0-0
 libustr-1.0-1
 libutempter0
 libuuid1
@@ -230,6 +231,8 @@ tzdata
 u-boot-tools
 ucf
 udev
+unzip
+usbutils
 util-linux
 vim-common
 vim-tiny
