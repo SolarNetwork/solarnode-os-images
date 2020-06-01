@@ -95,7 +95,6 @@ libfontconfig1
 libfreetype6
 libgcc1
 libgcrypt20
-libgdbm3
 libgmp10
 libgnutls30
 libgpg-error0
@@ -122,6 +121,7 @@ liblocale-gettext-perl
 liblz4-1
 liblzma5
 libmnl0
+libmodbus
 libmount1
 libncurses6
 libncursesw6
