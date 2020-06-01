@@ -120,6 +120,14 @@ if [ -e "$MOUNT/var/tmp" ]; then
 fi
 
 if [ $VERBOSE = 1 ]; then
+	echo "Deleting misclaneous files..."
+	find "$MOUNT" -type f -name .DS_Store -o -name '*.swp' -print
+fi
+if [ ! $DRYRUN = 1 ]; then
+	find "$MOUNT" -type f -name .DS_Store -o -name '*.swp' -delete
+fi
+
+if [ $VERBOSE = 1 ]; then
 	echo "Finding  localized man files to delete..."
 	find "$MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) -print
 fi
