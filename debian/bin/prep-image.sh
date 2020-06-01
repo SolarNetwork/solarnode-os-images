@@ -109,6 +109,14 @@ if [ ! $DRYRUN = 1 ]; then
 	find "$MOUNT/var/cache/apt" -type f -name '*.bin' -delete
 fi
 
+if [ $VERBOSE = 1 ]; then
+	echo "Finding debconf cache files to delete..."
+	find "$MOUNT/var/cache/debconf" -type f -name '*-old' -print
+fi
+if [ ! $DRYRUN = 1 ]; then
+	find "$MOUNT/var/cache/debconf" -type f -name '*-old' -delete
+fi
+
 if [ -e "$MOUNT/var/tmp" ]; then
 	if [ $VERBOSE = 1 ]; then
 		echo "Deleting temporary files from /var/tmp..."
