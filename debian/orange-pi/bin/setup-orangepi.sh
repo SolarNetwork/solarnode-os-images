@@ -66,7 +66,7 @@ Arguments:
  -r <root dev>          - the root device; defaults to /dev/mmcblk0p2
  -U <user pass>         - the app user password; defaults to solar
  -u <username>          - the app username to use; defaults to solar
- -V <pi user>           - the pi username to delete; defaults to pi
+ -V <pi user>           - the pi username to delete; defaults to orangepi
  -v                     - verbose mode; print out more verbose messages
 EOF
 }
@@ -374,6 +374,18 @@ setup_disable_root () {
 	fi
 }
 
+setup_remove_dev_files () {
+	if [ -d /usr/local/include -a -n `ls -A /usr/local/include` ]; then
+		echo -n "Removing files from /usr/local/include... "
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			rm -rf /usr/local/include/*
+			echo 'OK'
+		fi
+	fi
+}
+
 setup_root_dev 
 setup_hostname
 setup_dns
@@ -386,4 +398,5 @@ setup_expandfs
 setup_swap
 setup_busybox_links
 setup_disable_root
+setup_remove_dev_files
 check_err
