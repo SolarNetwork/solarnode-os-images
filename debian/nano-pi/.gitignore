@@ -1,1 +1,3 @@
 /armbian-build
+/*.json
+/*.sha256
