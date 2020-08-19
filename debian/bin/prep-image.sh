@@ -44,30 +44,29 @@ if [ ! -e "$IMGNAME" ]; then
 	exit 2
 fi
 
-if [ ! `id -u` = 0 ]; then
-	echo "You must be root to run this script."
-	exit 3
-fi
-
 setup_json () {
 	local tmpl="$1"
 	local name="$2"
-	local suff="$3"
-	local jid="${name%%.*}-${suff}"
-	local usha="$(cat "$name.sha256" |cut -d' ' -f1)"
-	local ulen="$(stat --printf="%s" "$name")"
-	local sha="$(cat "$name.xz.sha256" |cut -d' ' -f1)"
-	local len="$(stat --printf="%s" "$name.xz")"
-	sed -e 's/"id":""/"id":"'"$jid"'"/' \
+	local outname="$3"
+	local usha="$(cat "$outname.img.sha256" |cut -d' ' -f1)"
+	local ulen="$(stat -L --printf="%s" "$name")"
+	local sha="$(cat "$outname.img.xz.sha256" |cut -d' ' -f1)"
+	local len="$(stat -L --printf="%s" "$outname.img.xz")"
+	sed -e 's/"id":""/"id":"'"$outname"'"/' \
 		-e 's/"sha256":""/"sha256":"'"$sha"'"/' \
 		-e 's/"uncompressedSha256":""/"uncompressedSha256":"'"$usha"'"/' \
 		-e 's/"contentLength":0/"contentLength":'"$len"'/' \
 		-e 's/"uncompressedContentLength":0/"uncompressedContentLength":'"$ulen"'/' \
-		"$tmpl" > "${jid}.json"
-	echo "Saved JSON info to ${jid}.json"
+		"$tmpl" > "${outname}.json"
+	echo "Saved JSON info to ${outname}.json"
 }
 
 optimize_image () {
+	if [ ! `id -u` = 0 ]; then
+		echo "You must be root to run this script without -O."
+		exit 3
+	fi
+
 	LOOPDEV=`losetup -P -f --show $IMGNAME`
 	if [ -z "$LOOPDEV" ]; then
 		echo "Error: loop device not discovered for image $IMGNAME"
@@ -222,29 +221,34 @@ if [ $SKIP_OPTIMIZE = 0 ]; then
 	optimize_image
 fi
 
-if [ $VERBOSE = 1 ]; then
-	echo "Checksumming image as $IMGNAME.sha256..."
-fi
-if [ ! $DRYRUN = 1 ]; then
-	sha256sum "$IMGNAME" >"$IMGNAME.sha256"
+OUTNAME=${IMGNAME%%.*}
+if [ -e "$JSON_TEMPLATE" ]; then
+	OUTNAME="${OUTNAME}-${JSON_ID_SUFFIX}"
 fi
 
 if [ $VERBOSE = 1 ]; then
-	echo "Compressing image as $IMGNAME.xz..."
+	echo "Checksumming image as $OUTNAME.img.sha256..."
 fi
 if [ ! $DRYRUN = 1 ]; then
-	xz -cv -9 "$IMGNAME" >"$IMGNAME.xz"
+	sha256sum "$IMGNAME" >"$OUTNAME.img.sha256"
 fi
 
 if [ $VERBOSE = 1 ]; then
-	echo "Checksumming compressed image as $IMGNAME.xz.sha256..."
+	echo "Compressing image as $OUTNAME.img.xz..."
 fi
 if [ ! $DRYRUN = 1 ]; then
-	sha256sum "$IMGNAME.xz" >"$IMGNAME.xz.sha256"
+	xz -cv -9 "$IMGNAME" >"$OUTNAME.img.xz"
+fi
+
+if [ $VERBOSE = 1 ]; then
+	echo "Checksumming compressed image as $OUTNAME.img.xz.sha256..."
+fi
+if [ ! $DRYRUN = 1 ]; then
+	sha256sum "$OUTNAME.img.xz" >"$OUTNAME.img.xz.sha256"
 fi
 
 if [ -e "$JSON_TEMPLATE" ]; then
-	setup_json "$JSON_TEMPLATE" "$IMGNAME" "$JSON_ID_SUFFIX"
+	setup_json "$JSON_TEMPLATE" "$IMGNAME" "$OUTNAME"
 fi
 
 if [ $VERBOSE ]; then
