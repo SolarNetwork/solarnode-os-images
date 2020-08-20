@@ -8,8 +8,7 @@
 #
 #  apt install systemd-container qemu binfmt-support qemu-user-static
 #
-# The -e (filesystem expansion) relies on the `truncate` command, available in the
-# coreutils package.
+# This script relies on tools available in the coreutils package.
 
 declare -A FS_OPTS
 FS_OPTS[btrfs]="-m dup"
@@ -19,8 +18,10 @@ declare -A MNT_OPTS
 MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=600,compress-force=zstd"
 MNT_OPTS[ext4]="defaults,commit=600"
 
+COMPRESS_DEST_IMAGE=""
+COMPRESS_DEST_OPTS="-8 -T 0"
 EXPAND_SOLARNODE_FS=""
-DRY_RUN=""
+DEST_PATH=""
 SRC_IMG=""
 VERBOSE=""
 
@@ -29,8 +30,10 @@ do_help () {
 Usage: $0 <arguments> src script [bind-mounts]
 
  -e <size MB>  - expand the SOLARNODE filesystem by this amount, in MB
- -n            - dry run, do not make any changes
+ -o <out name> - the output name for the final image
  -v            - increase verbosity of tasks
+ -Z <options>  - xz options to use on final image; defaults to '-8 -T 0'
+ -z            - compress final image with xz
 
 The bind-mounts argument must adhere to the systemd-nspawn --bind-ro syntax,
 that is something like 'src:mount'. Multiple mounts should be separarted by
@@ -47,11 +50,13 @@ To expand the root filesystem by 500 MB:
 EOF
 }
 
-while getopts ":e:nv" opt; do
+while getopts ":e:o:vZ:z" opt; do
 	case $opt in
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
-		n) DRY_RUN="TRUE";;
+		o) DEST_PATH="${OPTARG}";;
 		v) VERBOSE="TRUE";;
+		Z) COMPRESS_DEST_OPTS="${OPTARG}";;
+		z) COMPRESS_DEST_IMAGE="TRUE";;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -313,7 +318,35 @@ copy_img () {
 	fi
 	losetup -d "$out_loopdev"
 
-	echo "Customized image complete: $out_img"
+	if [ -n "$VERBOSE" ]; then
+	       echo "Customized image complete: $out_img"
+	fi
+	if [ -n "$DEST_PATH" ]; then
+		mv "$out_img" "$DEST_PATH"
+		out_img="$DEST_PATH"
+	fi
+
+	out_path=$(dirname $(readlink -f "$out_img"))
+	out_name=$(basename "${out_img%%.*}")
+	# cd into out_path so checksums don't contain paths
+	pushd "$out_path"
+	if [ -n "$VERBOSE" ]; then
+		echo "Checksumming image as ${out_path}/${out_name}.img.sha256..."
+	fi
+	sha256sum $(basename $out_img) >"${out_name}.img.sha256"
+	
+	if [ -n "$COMPRESS_DEST_IMAGE" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Compressing image as ${out_path}/${out_name}.img.xz..."
+		fi
+		xz -cv ${COMPRESS_DEST_OPTS} "$out_img" >"${out_name}.img.xz"
+
+		if [ -n "$VERBOSE" ]; then
+			echo "Checksumming compressed image as ${out_name}.img.xz.sha256..."
+		fi
+		sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
+	fi
+	popd
 }
 
 copy_src_img
@@ -324,3 +357,6 @@ clean_chroot
 copy_img
 close_src_loopdev
 clean_src_img
+if [ -n "$DEST_PATH" ]; then
+	echo "Customized image saved to $DEST_PATH"
+fi
