@@ -18,6 +18,7 @@ PKG_ADD="conf/packages-add.txt"
 PKG_ADD_EARLY="conf/packages-add-early.txt"
 PKG_DEL_LATE="conf/packages-del-late.txt"
 PI_USER="pi"
+RELEASE_NAME="SolarNodeOS 10"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
 SKIP_FS_EXPAND=""
@@ -49,6 +50,7 @@ Arguments:
  -i <input dir>         - path to input configuration directory; defaults to /tmp/overlay
  -K <package list file> - path to list of packages to add; defaults to conf/packages-add.txt
  -k <package list file> - path to list of packages to keep; defaults to conf/packages-keep.txt
+ -N <name>              - release name; defaults to 'SolarNodeOS 10'
  -n                     - dry run; do not make any actual changes
  -P                     - update package cache
  -p <apt repo url>      - the SNF package repository to use; defaults to
@@ -68,7 +70,7 @@ Arguments:
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:nPp:q:R:r:SU:u:V:v" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:N:nPp:q:R:r:SU:u:V:v" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
@@ -80,6 +82,7 @@ while getopts ":a:B:b:e:Eh:i:K:k:nPp:q:R:r:SU:u:V:v" opt; do
 		i) INPUT_DIR="${OPTARG}";;
 		K) PKG_ADD="${OPTARG}";;
 		k) PKG_KEEP="${OPTARG}";;
+		N) RELEASE_NAME="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
@@ -428,12 +431,21 @@ setup_motd () {
 }
 
 setup_issue () {
-	if ! grep 'SolarNodeOS' /etc/issue >/dev/null 2>&1; then
-		echo -n 'Setting SolarNodeOS /etc/issue configuration... '
+	if ! grep "$RELEASE_NAME" /etc/issue >/dev/null 2>&1; then
+		echo -n 'Setting /etc/issue release name... '
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			sed -i '1s/.*\\/SolarNodeOS 10 \\/' /etc/issue
+			sed -i '1s/.*\\/'"$RELEASE_NAME"' \\/' /etc/issue
+			echo 'OK'
+		fi
+	fi
+	if ! grep "$RELEASE_NAME" /etc/issue.net >/dev/null 2>&1; then
+		echo -n 'Setting /etc/issue.net release name... '
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			echo -n "$RELEASE_NAME" >/etc/issue.net
 			echo 'OK'
 		fi
 	fi
