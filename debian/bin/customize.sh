@@ -7,11 +7,9 @@
 # packages are installed, e.g.
 #
 #  apt install systemd-container qemu binfmt-support qemu-user-static
-
-if [ $(id -u) -ne 0 ]; then
-	echo "This script must be run as root."
-	exit 1
-fi
+#
+# The -e (filesystem expansion) relies on the `truncate` command, available in the
+# coreutils package.
 
 declare -A FS_OPTS
 FS_OPTS[btrfs]="-m dup"
@@ -20,22 +18,38 @@ FS_OPTS[fat]="-n SOLARBOOT"
 declare -A MNT_OPTS
 MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=600,compress-force=zstd"
 MNT_OPTS[ext4]="defaults,commit=600"
+
+EXPAND_SOLARNODE_FS=""
 DRY_RUN=""
 SRC_IMG=""
 VERBOSE=""
 
 do_help () {
 	cat 1>&2 <<EOF
-Usage: $0 <arguments> src script 
+Usage: $0 <arguments> src script [bind-mounts]
+
+ -e <size MB>  - expand the SOLARNODE filesystem by this amount, in MB
  -n            - dry run, do not make any changes
  -v            - increase verbosity of tasks
 
-TODO
+The bind-mounts argument must adhere to the systemd-nspawn --bind-ro syntax,
+that is something like 'src:mount'. Multiple mounts should be separarted by
+commas. This mounts will then be available to the customization script.
+
+Example that mounts /home/me as /var/tmp/me in the chroot:
+
+  ./customize.sh solarnodeos-20200820.img my-cust.sh /home/me:/var/tmp/me
+
+To expand the root filesystem by 500 MB:
+
+  ./customize.sh -e 500 solarnodeos-20200820.img my-cust.sh
+
 EOF
 }
 
-while getopts ":nv" opt; do
+while getopts ":e:nv" opt; do
 	case $opt in
+		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		n) DRY_RUN="TRUE";;
 		v) VERBOSE="TRUE";;
 		*)
@@ -46,6 +60,11 @@ while getopts ":nv" opt; do
 done
 
 shift $(($OPTIND - 1))
+
+if [ $(id -u) -ne 0 ]; then
+	echo "This script must be run as root."
+	exit 1
+fi
 
 IMG="$1"
 if [ -z "$IMG" ]; then
@@ -66,7 +85,8 @@ if [ ! -e "$SCRIPT" ]; then
 	echo "Error: script '$SCRIPT' not available."
 	exit 1
 fi
-shift 2
+
+BIND_MOUNTS="$3"
 
 FSTYPE_SOLARNODE=""
 FSTYPE_SOLARBOOT=""
@@ -89,6 +109,13 @@ copy_src_img () {
 	elif ! cp ${VERBOSE//TRUE/-v} "$IMG" "$SRC_IMG"; then
 		echo "Error: unable to copy $IMG to $SRC_IMG"
 		exit 1
+	fi
+	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
+		if ! truncate -s +${EXPAND_SOLARNODE_FS}M "$SRC_IMG"; then
+			echo "Error: unable to expand $SRC_IMG by ${EXPAND_SOLARNODE_FS}MB."
+		elif [ -n "$VERBOSE" ]; then
+			echo "Expanded $SRC_IMG by ${EXPAND_SOLARNODE_FS}MB."
+		fi
 	fi
 }
 
@@ -127,6 +154,15 @@ setup_src_loopdev () {
 		echo "Discovered source SOLARNODE partition ${SOLARNODE_PART}."
 	fi
 
+	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
+		local part_num=$(sfdisk -ql "$LOOPDEV" -o Device |tail +2 |awk '{print NR,$0}' |grep "$SOLARNODE_PART" |cut -d' ' -f1)
+		if [ -n "$VERBOSE" ]; then
+			echo "Expanding partition $part_num on ${LOOPDEV} by $EXPAND_SOLARNODE_FS MB."
+		fi
+		echo ",+${EXPAND_SOLARNODE_FS}M" |sfdisk ${LOOPDEV} -N${part_num} --no-reread -q
+		partx -u ${LOOPDEV}
+	fi
+
 	if ! mount "$SOLARNODE_PART" "$SRC_MOUNT"; then
 		echo "Error: unable to mount $SOLARNODE_PART on $SRC_MOUNT"
 		exit 1
@@ -139,6 +175,14 @@ setup_src_loopdev () {
 		echo "Error: SOLARNODE filesystem type not discovered."
 	elif [ -n "$VERBOSE" ]; then
 		echo "Discovered source SOLARNODE filesystem type $FSTYPE_SOLARNODE."
+	fi
+
+	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
+		case $FSTYPE_SOLARNODE in
+			btrfs) btrfs filesystem resize max "$SRC_MOUNT";;
+			ext4) resize2fs "$SOLARNODE_PART";;
+			*) echo "Filesystem expansion for type $FSTYPE_SOLARNODE not supported.";;
+		esac
 	fi
 
 	if ! mount "$SOLARBOOT_PART" "$SRC_MOUNT/boot"; then
@@ -205,8 +249,13 @@ clean_chroot () {
 }
 
 execute_chroot () {
+	local binds="$1"
+	if [ -n "$binds" ]; then
+		binds="--bind-ro=$binds"
+	fi
 	systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
 		--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
+		${binds} \
 		./customize ${VERBOSE//TRUE/-v}
 }
 
@@ -214,7 +263,7 @@ copy_part () {
 	local part="$1"
 	local fstype="$2"
 	local src="$3"
-	#local sector_start=$(sfdisk -ql "$LOOPDEV" -o Device,Start |tail +2 |grep 
+
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating $part $fstype filesystem with options ${FS_OPTS[$fstype]}."
 	fi
@@ -270,7 +319,7 @@ copy_img () {
 copy_src_img
 setup_src_loopdev
 setup_chroot
-execute_chroot
+execute_chroot "$BIND_MOUNTS"
 clean_chroot
 copy_img
 close_src_loopdev
