@@ -97,6 +97,11 @@ setup_root_dev () {
 		sed -i 's/^UUID=[^ ]* \/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $mnt/etc/fstab \
 			&& echo "OK" || echo "ERROR"
 	fi
+	if grep 'compress=lzo' $mnt/etc/fstab >/dev/null 2>&1; then
+		echo -n "Changing compression in $mnt/etc/fstab from lzo to zstd... "
+		sed -i 's/compress=lzo/compress=zstd/' $mnt/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
 	if ! grep '^tmpfs /run ' $mnt/etc/fstab >/dev/null 2>&1; then
 		echo -n "Adding /run mount in $mnt/etc/fstab with explicit size... "
 		echo 'tmpfs /run tmpfs rw,nosuid,noexec,relatime,size=50%,mode=755 0 0' >>$mnt/etc/fstab \
