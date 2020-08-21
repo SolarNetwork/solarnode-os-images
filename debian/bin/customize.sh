@@ -267,7 +267,8 @@ execute_chroot () {
 copy_part () {
 	local part="$1"
 	local fstype="$2"
-	local src="$3"
+	local label="$3"
+	local src="$4"
 
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating $part $fstype filesystem with options ${FS_OPTS[$fstype]}."
@@ -284,6 +285,10 @@ copy_part () {
 		echo "Error: failed to mount $part on $tmp_mount."
 		exit 1
 	fi
+	case $fstype in
+		btrfs) btrfs filesystem label "$tmp_mount" "$label";;
+		ext*) e2label "$part" "$label";;
+	esac
 	rsync -aHWXhx ${VERBOSE//TRUE/--info=progress2,stats1} "$src"/ "$tmp_mount"/
 	umount "$tmp_mount"
 	rmdir "$tmp_mount"
@@ -310,8 +315,8 @@ copy_img () {
 		exit 1
 	fi
 
-	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$SRC_MOUNT/boot"
-	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "$SRC_MOUNT"
+	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/boot"
+	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "SOLARNODE" "$SRC_MOUNT"
 
 	if [ -n "$VERBOSE" ]; then
 		echo "Closing output image loop device $out_loopdev."
