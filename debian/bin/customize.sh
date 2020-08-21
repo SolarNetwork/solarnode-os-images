@@ -228,7 +228,7 @@ setup_chroot () {
 	if [ -L "$SRC_MOUNT/etc/resolv.conf" -o -e "$SRC_MOUNT/etc/resolv.conf" ]; then
 		mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"
 	else
-		echo wtf
+		echo "Error: unable to rename $SRC_MOUNT/etc/resolv.conf." 
 		exit 1
 	fi
 	echo 'nameserver 1.1.1.1' >"$SRC_MOUNT/etc/resolv.conf"
@@ -244,7 +244,7 @@ setup_chroot () {
 }
 
 clean_chroot () {
-	if [ -e "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak" ]; then
+	if [ -L "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak" ]; then
 		if [ -n "$VERBOSE" ]; then
 			echo "Restoring original $SRC_MOUNT/etc/resolv.conf"
 		fi
