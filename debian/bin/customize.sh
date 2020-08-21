@@ -22,6 +22,7 @@ COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0"
 EXPAND_SOLARNODE_FS=""
 DEST_PATH=""
+SCRIPT_ARGS=""
 SRC_IMG=""
 VERBOSE=""
 
@@ -29,6 +30,7 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments> src script [bind-mounts]
 
+ -a <args>     - extra argumnets to pass to the script
  -e <size MB>  - expand the SOLARNODE filesystem by this amount, in MB
  -o <out name> - the output name for the final image
  -v            - increase verbosity of tasks
@@ -50,8 +52,9 @@ To expand the root filesystem by 500 MB:
 EOF
 }
 
-while getopts ":e:o:vZ:z" opt; do
+while getopts ":a:e:o:vZ:z" opt; do
 	case $opt in
+		a) SCRIPT_ARGS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		o) DEST_PATH="${OPTARG}";;
 		v) VERBOSE="TRUE";;
@@ -261,8 +264,28 @@ execute_chroot () {
 	systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
 		--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
 		${binds} \
-		./customize ${VERBOSE//TRUE/-v}
+		./customize \
+			${VERBOSE//TRUE/-v} \
+			${SCRIPT_ARGS}
 }
+
+copy_bootloader () {
+	local dev="$1"
+	# note: following assumes MBR, with first 440 bytes the boot loader
+	local start_len="440"
+	local bl_offset="1"
+	local bl_len=$(echo "$(sfdisk -ql $dev -o Start |tail +2 |head -1) - $bl_offset" |bc)
+	if ! dd status=none if=$SRC_IMG of=$dev bs=$start_len count=1; then
+		echo "Error: problem copying MBR bootloader from $SRC_IMG to $dev."
+	elif [ -n "$VERBOSE" ]; then
+		echo "Copied $start_len bootloader bytes from $SRC_IMG to $dev."
+	fi
+	if ! dd status=none if=$SRC_IMG of=$dev bs=512 skip=$bl_offset seek=$bl_offset count=$bl_len; then
+		echo "Error: problem copying bootloader from $SRC_IMG to $dev."
+	elif [ -n "$VERBOSE" ]; then
+		echo "Copied ${bl_len} sectors starting from $bl_offset for bootloader from $SRC_IMG to $dev."
+	fi
+}	
 
 copy_part () {
 	local part="$1"
@@ -273,7 +296,7 @@ copy_part () {
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating $part $fstype filesystem with options ${FS_OPTS[$fstype]}."
 	fi
-	if ! mkfs.$fstype ${FS_OPTS[$fstype]} "$part"; then
+	if ! mkfs.$fstype -q ${FS_OPTS[$fstype]} "$part"; then
 		echo "Error: failed to create $part $fstype filesystem."
 		exit 1
 	fi
@@ -289,6 +312,9 @@ copy_part () {
 		btrfs) btrfs filesystem label "$tmp_mount" "$label";;
 		ext*) e2label "$part" "$label";;
 	esac
+	if [ -n "$VERBOSE" ]; then
+		echo "Copying files from $src to $tmp_mount..."
+	fi
 	rsync -aHWXhx ${VERBOSE//TRUE/--info=progress2,stats1} "$src"/ "$tmp_mount"/
 	umount "$tmp_mount"
 	rmdir "$tmp_mount"
@@ -301,7 +327,7 @@ copy_img () {
 	if [ -n "$VEBOSE" ]; then
 		echo "Creating ${size_mb}MB output image $out_img."
 	fi
-	if ! dd if=/dev/zero of="$out_img" bs=1M count=$size_mb; then
+	if ! dd if=/dev/zero of="$out_img" bs=1M count=$size_mb status=none; then
 		echo "Error creating ${size_mb}MB output image $out_img."
 		exit 1
 	fi
@@ -310,11 +336,12 @@ copy_img () {
 	if [ -n "$VERBOSE" ]; then
 		echo "Opened output image loop device $out_loopdev."
 	fi
-	if ! sfdisk -d "$LOOPDEV" |sfdisk "$out_loopdev"; then
+	if ! sfdisk -q -d "$LOOPDEV" |sfdisk -q "$out_loopdev"; then
 		echo "Error copying partition table from $LOOPDEV to $outdev."
 		exit 1
 	fi
 
+	copy_bootloader "$out_loopdev"
 	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/boot"
 	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "SOLARNODE" "$SRC_MOUNT"
 
