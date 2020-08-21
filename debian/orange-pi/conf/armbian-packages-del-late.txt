@@ -1,0 +1,4 @@
+ifupdown
+libbluetooth3
+network-manager
+resolvconf

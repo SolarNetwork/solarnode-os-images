@@ -85,6 +85,42 @@ The image is then compressed, and then a digest computed like this:
 xz -c -9 solarnode-deb9-orangepi-zero-1GB.img >solarnode-deb9-orangepi-zero-1GB.img.xz
 sha256sum solarnode-deb9-orangepi-zero-1GB.img.xz >solarnode-deb9-orangepi-zero-1GB.img.xz.sha256
 ```
+# Development
+
+The Armbian build process was used to turn Armbian into SolarNodeOS by following these steps:
+
+## Setup Armbian build for Vagrant
+
+Either check out directly or create a symbolic link to the build repository named `armbian-build`.
+
+Add the following to the `Main()` function:
+
+```
+if [ -e /tmp/overlay/sn-$BOARD/bin/setup-sn.sh ]; then
+	echo "SolarNode setup script discovered at /tmp/overlay/sn-$BOARD/bin/setup-sn.sh"
+	export LANG=C LC_ALL="en_US.UTF-8"
+	export DEBIAN_FRONTEND=noninteractive
+	/tmp/overlay/sn-$BOARD/bin/setup-sn.sh -a $BOARD -i /tmp/overlay/sn-$BOARD
+	rm -f /root/.not_logged_in_yet
+fi
+```
+
+Copy the contents of this directory to the `userpatches/overlay` directory as the appropriate
+directory named for the board being built:
+
+```sh
+rsync -avL bin conf armbian-build/userpatches/overlay/sn-orangepizero
+```
+
+## Execute build
+
+Bring up Vagrant and then run build:
+
+```sh
+$ cd armbian-build/config/templates
+$ vagrant reload
+$ vagrant ssh -c 'sudo BOARD=orangepizero armbian/userpatches/overlay/sn-nanopiair/bin/armbian-build.sh'
+```
 
   [1]: https://www.orangepi.org/
   [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Armbian-Orange-Pi

@@ -83,7 +83,7 @@ if [ -e /tmp/overlay/sn-$BOARD/bin/setup-sn.sh ]; then
 	echo "SolarNode setup script discovered at /tmp/overlay/sn-$BOARD/bin/setup-sn.sh"
 	export LANG=C LC_ALL="en_US.UTF-8"
 	export DEBIAN_FRONTEND=noninteractive
-	/tmp/overlay/sn-$BOARD/bin/setup-sn.sh -i /tmp/overlay/sn-$BOARD
+	/tmp/overlay/sn-$BOARD/bin/setup-sn.sh -a $BOARD -i /tmp/overlay/sn-$BOARD
 	rm -f /root/.not_logged_in_yet
 fi
 ```
@@ -102,7 +102,7 @@ Bring up Vagrant and then run build:
 ```sh
 $ cd armbian-build/config/templates
 $ vagrant reload
-$ vagrant ssh -c 'sudo armbian/userpatches/overlay/sn-nanopiair/bin/armbian-build.sh'
+$ vagrant ssh -c 'sudo BOARD=nanopiair armbian/userpatches/overlay/sn-nanopiair/bin/armbian-build.sh'
 ```
 
   [1]: https://friendlyarm.com/
