@@ -331,6 +331,7 @@ copy_img () {
 		echo "Error creating ${size_mb}MB output image $out_img."
 		exit 1
 	fi
+	chmod 644 "$out_img"
 
 	local out_loopdev=$(losetup -P -f --show $out_img)
 	if [ -n "$VERBOSE" ]; then
