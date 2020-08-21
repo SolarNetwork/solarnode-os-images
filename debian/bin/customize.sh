@@ -7,11 +7,8 @@
 # packages are installed, e.g.
 #
 #  apt install systemd-container qemu binfmt-support qemu-user-static
-
-if [ $(id -u) -ne 0 ]; then
-	echo "This script must be run as root."
-	exit 1
-fi
+#
+# This script relies on tools available in the coreutils package.
 
 declare -A FS_OPTS
 FS_OPTS[btrfs]="-m dup"
@@ -20,24 +17,49 @@ FS_OPTS[fat]="-n SOLARBOOT"
 declare -A MNT_OPTS
 MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=600,compress-force=zstd"
 MNT_OPTS[ext4]="defaults,commit=600"
-DRY_RUN=""
+
+COMPRESS_DEST_IMAGE=""
+COMPRESS_DEST_OPTS="-8 -T 0"
+EXPAND_SOLARNODE_FS=""
+DEST_PATH=""
+SCRIPT_ARGS=""
 SRC_IMG=""
 VERBOSE=""
 
 do_help () {
 	cat 1>&2 <<EOF
-Usage: $0 <arguments> src script 
- -n            - dry run, do not make any changes
- -v            - increase verbosity of tasks
+Usage: $0 <arguments> src script [bind-mounts]
 
-TODO
+ -a <args>     - extra argumnets to pass to the script
+ -e <size MB>  - expand the SOLARNODE filesystem by this amount, in MB
+ -o <out name> - the output name for the final image
+ -v            - increase verbosity of tasks
+ -Z <options>  - xz options to use on final image; defaults to '-8 -T 0'
+ -z            - compress final image with xz
+
+The bind-mounts argument must adhere to the systemd-nspawn --bind-ro syntax,
+that is something like 'src:mount'. Multiple mounts should be separarted by
+commas. This mounts will then be available to the customization script.
+
+Example that mounts /home/me as /var/tmp/me in the chroot:
+
+  ./customize.sh solarnodeos-20200820.img my-cust.sh /home/me:/var/tmp/me
+
+To expand the root filesystem by 500 MB:
+
+  ./customize.sh -e 500 solarnodeos-20200820.img my-cust.sh
+
 EOF
 }
 
-while getopts ":nv" opt; do
+while getopts ":a:e:o:vZ:z" opt; do
 	case $opt in
-		n) DRY_RUN="TRUE";;
+		a) SCRIPT_ARGS="${OPTARG}";;
+		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
+		o) DEST_PATH="${OPTARG}";;
 		v) VERBOSE="TRUE";;
+		Z) COMPRESS_DEST_OPTS="${OPTARG}";;
+		z) COMPRESS_DEST_IMAGE="TRUE";;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -46,6 +68,11 @@ while getopts ":nv" opt; do
 done
 
 shift $(($OPTIND - 1))
+
+if [ $(id -u) -ne 0 ]; then
+	echo "This script must be run as root."
+	exit 1
+fi
 
 IMG="$1"
 if [ -z "$IMG" ]; then
@@ -66,7 +93,8 @@ if [ ! -e "$SCRIPT" ]; then
 	echo "Error: script '$SCRIPT' not available."
 	exit 1
 fi
-shift 2
+
+BIND_MOUNTS="$3"
 
 FSTYPE_SOLARNODE=""
 FSTYPE_SOLARBOOT=""
@@ -89,6 +117,13 @@ copy_src_img () {
 	elif ! cp ${VERBOSE//TRUE/-v} "$IMG" "$SRC_IMG"; then
 		echo "Error: unable to copy $IMG to $SRC_IMG"
 		exit 1
+	fi
+	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
+		if ! truncate -s +${EXPAND_SOLARNODE_FS}M "$SRC_IMG"; then
+			echo "Error: unable to expand $SRC_IMG by ${EXPAND_SOLARNODE_FS}MB."
+		elif [ -n "$VERBOSE" ]; then
+			echo "Expanded $SRC_IMG by ${EXPAND_SOLARNODE_FS}MB."
+		fi
 	fi
 }
 
@@ -127,6 +162,15 @@ setup_src_loopdev () {
 		echo "Discovered source SOLARNODE partition ${SOLARNODE_PART}."
 	fi
 
+	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
+		local part_num=$(sfdisk -ql "$LOOPDEV" -o Device |tail +2 |awk '{print NR,$0}' |grep "$SOLARNODE_PART" |cut -d' ' -f1)
+		if [ -n "$VERBOSE" ]; then
+			echo "Expanding partition $part_num on ${LOOPDEV} by $EXPAND_SOLARNODE_FS MB."
+		fi
+		echo ",+${EXPAND_SOLARNODE_FS}M" |sfdisk ${LOOPDEV} -N${part_num} --no-reread -q
+		partx -u ${LOOPDEV}
+	fi
+
 	if ! mount "$SOLARNODE_PART" "$SRC_MOUNT"; then
 		echo "Error: unable to mount $SOLARNODE_PART on $SRC_MOUNT"
 		exit 1
@@ -139,6 +183,14 @@ setup_src_loopdev () {
 		echo "Error: SOLARNODE filesystem type not discovered."
 	elif [ -n "$VERBOSE" ]; then
 		echo "Discovered source SOLARNODE filesystem type $FSTYPE_SOLARNODE."
+	fi
+
+	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
+		case $FSTYPE_SOLARNODE in
+			btrfs) btrfs filesystem resize max "$SRC_MOUNT";;
+			ext4) resize2fs "$SOLARNODE_PART";;
+			*) echo "Filesystem expansion for type $FSTYPE_SOLARNODE not supported.";;
+		esac
 	fi
 
 	if ! mount "$SOLARBOOT_PART" "$SRC_MOUNT/boot"; then
@@ -176,7 +228,7 @@ setup_chroot () {
 	if [ -L "$SRC_MOUNT/etc/resolv.conf" -o -e "$SRC_MOUNT/etc/resolv.conf" ]; then
 		mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"
 	else
-		echo wtf
+		echo "Error: unable to rename $SRC_MOUNT/etc/resolv.conf." 
 		exit 1
 	fi
 	echo 'nameserver 1.1.1.1' >"$SRC_MOUNT/etc/resolv.conf"
@@ -192,7 +244,7 @@ setup_chroot () {
 }
 
 clean_chroot () {
-	if [ -e "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak" ]; then
+	if [ -L "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak" ]; then
 		if [ -n "$VERBOSE" ]; then
 			echo "Restoring original $SRC_MOUNT/etc/resolv.conf"
 		fi
@@ -205,20 +257,46 @@ clean_chroot () {
 }
 
 execute_chroot () {
+	local binds="$1"
+	if [ -n "$binds" ]; then
+		binds="--bind-ro=$binds"
+	fi
 	systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
 		--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
-		./customize ${VERBOSE//TRUE/-v}
+		${binds} \
+		./customize \
+			${VERBOSE//TRUE/-v} \
+			${SCRIPT_ARGS}
 }
+
+copy_bootloader () {
+	local dev="$1"
+	# note: following assumes MBR, with first 440 bytes the boot loader
+	local start_len="440"
+	local bl_offset="1"
+	local bl_len=$(echo "$(sfdisk -ql $dev -o Start |tail +2 |head -1) - $bl_offset" |bc)
+	if ! dd status=none if=$SRC_IMG of=$dev bs=$start_len count=1; then
+		echo "Error: problem copying MBR bootloader from $SRC_IMG to $dev."
+	elif [ -n "$VERBOSE" ]; then
+		echo "Copied $start_len bootloader bytes from $SRC_IMG to $dev."
+	fi
+	if ! dd status=none if=$SRC_IMG of=$dev bs=512 skip=$bl_offset seek=$bl_offset count=$bl_len; then
+		echo "Error: problem copying bootloader from $SRC_IMG to $dev."
+	elif [ -n "$VERBOSE" ]; then
+		echo "Copied ${bl_len} sectors starting from $bl_offset for bootloader from $SRC_IMG to $dev."
+	fi
+}	
 
 copy_part () {
 	local part="$1"
 	local fstype="$2"
-	local src="$3"
-	#local sector_start=$(sfdisk -ql "$LOOPDEV" -o Device,Start |tail +2 |grep 
+	local label="$3"
+	local src="$4"
+
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating $part $fstype filesystem with options ${FS_OPTS[$fstype]}."
 	fi
-	if ! mkfs.$fstype ${FS_OPTS[$fstype]} "$part"; then
+	if ! mkfs.$fstype -q ${FS_OPTS[$fstype]} "$part"; then
 		echo "Error: failed to create $part $fstype filesystem."
 		exit 1
 	fi
@@ -229,6 +307,13 @@ copy_part () {
 	if ! mount -o ${MNT_OPTS[$fstype]} "$part" "$tmp_mount"; then
 		echo "Error: failed to mount $part on $tmp_mount."
 		exit 1
+	fi
+	case $fstype in
+		btrfs) btrfs filesystem label "$tmp_mount" "$label";;
+		ext*) e2label "$part" "$label";;
+	esac
+	if [ -n "$VERBOSE" ]; then
+		echo "Copying files from $src to $tmp_mount..."
 	fi
 	rsync -aHWXhx ${VERBOSE//TRUE/--info=progress2,stats1} "$src"/ "$tmp_mount"/
 	umount "$tmp_mount"
@@ -242,36 +327,69 @@ copy_img () {
 	if [ -n "$VEBOSE" ]; then
 		echo "Creating ${size_mb}MB output image $out_img."
 	fi
-	if ! dd if=/dev/zero of="$out_img" bs=1M count=$size_mb; then
+	if ! dd if=/dev/zero of="$out_img" bs=1M count=$size_mb status=none; then
 		echo "Error creating ${size_mb}MB output image $out_img."
 		exit 1
 	fi
+	chmod 644 "$out_img"
 
 	local out_loopdev=$(losetup -P -f --show $out_img)
 	if [ -n "$VERBOSE" ]; then
 		echo "Opened output image loop device $out_loopdev."
 	fi
-	if ! sfdisk -d "$LOOPDEV" |sfdisk "$out_loopdev"; then
+	if ! sfdisk -q -d "$LOOPDEV" |sfdisk -q "$out_loopdev"; then
 		echo "Error copying partition table from $LOOPDEV to $outdev."
 		exit 1
 	fi
 
-	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$SRC_MOUNT/boot"
-	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "$SRC_MOUNT"
+	copy_bootloader "$out_loopdev"
+	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/boot"
+	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "SOLARNODE" "$SRC_MOUNT"
 
 	if [ -n "$VERBOSE" ]; then
 		echo "Closing output image loop device $out_loopdev."
 	fi
 	losetup -d "$out_loopdev"
 
-	echo "Customized image complete: $out_img"
+	if [ -n "$VERBOSE" ]; then
+	       echo "Customized image complete: $out_img"
+	fi
+	if [ -n "$DEST_PATH" ]; then
+		mv "$out_img" "$DEST_PATH"
+		out_img="$DEST_PATH"
+	fi
+
+	out_path=$(dirname $(readlink -f "$out_img"))
+	out_name=$(basename "${out_img%%.*}")
+	# cd into out_path so checksums don't contain paths
+	pushd "$out_path"
+	if [ -n "$VERBOSE" ]; then
+		echo "Checksumming image as ${out_path}/${out_name}.img.sha256..."
+	fi
+	sha256sum $(basename $out_img) >"${out_name}.img.sha256"
+	
+	if [ -n "$COMPRESS_DEST_IMAGE" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Compressing image as ${out_path}/${out_name}.img.xz..."
+		fi
+		xz -cv ${COMPRESS_DEST_OPTS} "$out_img" >"${out_name}.img.xz"
+
+		if [ -n "$VERBOSE" ]; then
+			echo "Checksumming compressed image as ${out_name}.img.xz.sha256..."
+		fi
+		sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
+	fi
+	popd
 }
 
 copy_src_img
 setup_src_loopdev
 setup_chroot
-execute_chroot
+execute_chroot "$BIND_MOUNTS"
 clean_chroot
 copy_img
 close_src_loopdev
 clean_src_img
+if [ -n "$DEST_PATH" ]; then
+	echo "Customized image saved to $DEST_PATH"
+fi
