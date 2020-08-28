@@ -119,7 +119,7 @@ Bring up Vagrant and then run build:
 ```sh
 $ cd armbian-build/config/templates
 $ vagrant reload
-$ vagrant ssh -c 'sudo BOARD=orangepizero armbian/userpatches/overlay/sn-nanopiair/bin/armbian-build.sh'
+$ vagrant ssh -c 'sudo BOARD=orangepizero armbian/userpatches/overlay/sn-orangepizero/bin/armbian-build.sh'
 ```
 
   [1]: https://www.orangepi.org/
