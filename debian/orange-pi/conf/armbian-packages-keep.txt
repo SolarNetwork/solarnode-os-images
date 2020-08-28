@@ -202,11 +202,6 @@ libxtables12
 libxtst6
 libyasdi
 libzstd1
-linux-base
-linux-buster-root-current-nanopiair
-linux-dtb-current-sunxi
-linux-image-current-sunxi
-linux-u-boot-nanopiair-current
 localepurge
 locales
 login

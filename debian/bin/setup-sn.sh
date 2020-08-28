@@ -330,13 +330,20 @@ setup_software () {
 	pkg_remove rsyslog
 	pkg_install busybox-syslogd
 
-	# remove all packages NOT in manifest or not to add later
+	# remove all packages NOT in manifest or not to add later and NOT starting with linux- (kernel)
 	if [ -n "$PKG_KEEP" -a -e "$INPUT_DIR/$PKG_KEEP" ]; then
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
 		local to_remove=""
 		while IFS= read -r line; do
 			if ! { grep -q "^$line$" "$INPUT_DIR/$PKG_KEEP" || grep -q "^$line$" "$INPUT_DIR/$PKG_ADD"; }; then
-				to_remove="$to_remove $line"
+				case $line in
+					linux-*)
+						# skip this
+						;;
+					*)
+						to_remove="$to_remove $line"
+						;;
+				esac
 			fi
 		done < /tmp/pkgs.txt
 		if [ -n "$to_remove" ]; then
