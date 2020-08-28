@@ -19,7 +19,7 @@ Arguments:
  -B                     - skip Armbian build
  -D                     - skip image date check
  -h <armbian build dir> - path to the Armbian build directory; defaults to armbian-build
- -s <mb>                - size of disk image, in MB; defaults to 940
+ -s <mb>                - size of disk image, in MB; defaults to 952
 EOF
 }
 
