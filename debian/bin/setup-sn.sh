@@ -313,6 +313,22 @@ setup_apt () {
 	fi
 }
 
+setup_systemd () {
+	# cap /var/log/journal to 10M
+	if grep -q '^SystemMaxUse=10M' /etc/systemd/journald.conf >/dev/null; then
+		true
+	else
+		echo 'Configuring SystemMaxUse in /etc/systemd/journald.conf; will be active on reboot.'
+		if grep -q 'SystemMaxUse' /etc/systemd/journald.conf; then
+			# update
+			sed -i -e '/SystemMaxUse/c SystemMaxUse=10M' /etc/systemd/journald.conf || true
+		else
+			# add in
+			echo 'SystemMaxUse=10M' >>/etc/systemd/journald.conf
+		fi
+	fi
+}
+
 setup_software_early () {
 	# add all packages in manifest
 	if [ -n "$PKG_ADD_EARLY" -a -e "$INPUT_DIR/$PKG_ADD_EARLY" ]; then
