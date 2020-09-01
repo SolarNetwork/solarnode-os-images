@@ -493,6 +493,7 @@ setup_software_early
 setup_hostname
 setup_dns
 setup_user
+setup_systemd
 setup_apt
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software
