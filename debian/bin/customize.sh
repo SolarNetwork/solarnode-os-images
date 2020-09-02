@@ -18,9 +18,14 @@ declare -A MNT_OPTS
 MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=600,compress-force=zstd"
 MNT_OPTS[ext4]="defaults,commit=600"
 MNT_OPTS[vfat]="defaults"
+declare -A DEST_MNT_OPTS
+DEST_MNT_OPTS[btrfs]="defaults,noatime,nodiratime,compress=zstd"
+DEST_MNT_OPTS[ext4]="defaults,noatim"
+DEST_MNT_OPTS[vfat]="defaults"
 
 SRC_BOOT_LABEL="SOLARBOOT"
 SRC_ROOT_LABEL="SOLARNODE"
+DEST_ROOT_FSTYPE=""
 BOOT_DEV_LABEL="${BOOT_DEV_LABEL:-SOLARBOOT}"
 ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
 COMPRESS_DEST_IMAGE=""
@@ -36,10 +41,11 @@ do_help () {
 Usage: $0 <arguments> src script [bind-mounts]
 
  -a <args>       - extra argumnets to pass to the script
+ -e <size MB>    - expand the SOLARNODE filesystem by this amount, in MB
  -P <boot label> - the source image boot partition label; defaults to SOLARBOOT
  -p <root label> - the source image root partition label; defaults to SOLARNODE
- -e <size MB>    - expand the SOLARNODE filesystem by this amount, in MB
  -o <out name>   - the output name for the final image
+ -r <fstype>     - force a specific root filesystem type in the destination image
  -v              - increase verbosity of tasks
  -Z <options>    - xz options to use on final image; defaults to '-8 -T 0'
  -z              - compress final image with xz
@@ -59,13 +65,14 @@ To expand the root filesystem by 500 MB:
 EOF
 }
 
-while getopts ":a:e:o:P:p:vZ:z" opt; do
+while getopts ":a:e:o:P:p:r:vZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		o) DEST_PATH="${OPTARG}";;
 		P) SRC_BOOT_LABEL="${OPTARG}";;
 		p) SRC_ROOT_LABEL="${OPTARG}";;
+		r) DEST_ROOT_FSTYPE="${OPTARG}";;
 		v) VERBOSE="TRUE";;
 		Z) COMPRESS_DEST_OPTS="${OPTARG}";;
 		z) COMPRESS_DEST_IMAGE="TRUE";;
@@ -261,6 +268,12 @@ setup_mounts () {
 		sed -i 's/^.*UUID=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
 	fi
+	if [ -n "$DEST_ROOT_FSTYPE" ]; then
+		# make sure fstab has changed file system options
+		echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to $DEST_ROOT_FSTYPE... "
+		sed -i 's/\/ *'"$FSTYPE_SOLARNODE"' *.*\([0-9] *[0-9]\)/\/ '"$DEST_ROOT_FSTYPE ${DEST_MNT_OPTS[$DEST_ROOT_FSTYPE]}"' \1/' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
 	if grep 'compress=lzo' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing compression in $SRC_MOUNT/etc/fstab from lzo to zstd... "
 		sed -i 's/compress=lzo/compress=zstd/' $SRC_MOUNT/etc/fstab \
@@ -273,9 +286,40 @@ setup_mounts () {
 	fi
 }
 
+setup_boot_cmdline () {
+	local dev="$1"
+	local mnt="$2"
+	local fs_type=$(findmnt -f -n -o FSTYPE "$dev")
+	case $fs_type in
+		ext*) setup_dev_ext "$dev" "$BOOT_DEV_LABEL";;
+	esac
+	if grep 'root=.*UUID=' $SRC_MOUNT/boot/cmdline.txt >/dev/null 2>&1; then
+		echo -n "Changing root from UUID to LABEL=SOLARBOOT in $SRC_MOUNT/cmdline.txt... "
+		sed -i 's/root=.*UUID=[0-9a-zA-Z-]*/root=LABEL='"$ROOT_DEV_LABEL"'/' $SRC_MOUNT/boot/cmdline.txt \
+			&& echo "OK" || echo "ERROR"
+	fi
+	if [ -n "$DEST_ROOT_FSTYPE" ]; then
+		echo -n "Changing root filesystem type to $DEST_ROOT_FSTYPE in $SRC_MOUNT/cmdline.txt... "
+		sed -i 's/rootfstype=[0-9a-zA-Z]*/rootfstype='"$DEST_ROOT_FSTYPE"'/' $SRC_MOUNT/boot/cmdline.txt \
+			&& echo "OK" || echo "ERROR"
+	fi
+	if grep ' init=' $SRC_MOUNT/boot/cmdline.txt >/dev/null 2>&1; then
+		echo -n "Removing init= from $SRC_MOUNT/boot/cmdline.txt... "
+		sed -i 's/ init=[^ ]*//' $SRC_MOUNT/boot/cmdline.txt \
+			&& echo "OK" || echo "ERROR"
+	fi
+	if ! grep ' fsck.repair=' $SRC_MOUNT/boot/cmdline.txt >/dev/null 2>&1; then
+		echo -n "Adding fsck.repair=yes to $SRC_MOUNT/boot/cmdline.txt... "
+		echo ' fsck.repair=yes' >> $SRC_MOUNT/boot/cmdline.txt \
+			&& echo "OK" || echo "ERROR"
+	fi
+}
+
+
 setup_chroot () {
 	disable_ld_preload
 	setup_mounts
+	setup_boot_cmdline
 	if [ -L "$SRC_MOUNT/etc/resolv.conf" -o -e "$SRC_MOUNT/etc/resolv.conf" ]; then
 		mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"
 	else
@@ -400,7 +444,7 @@ copy_img () {
 
 	copy_bootloader "$out_loopdev"
 	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/boot"
-	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "SOLARNODE" "$SRC_MOUNT"
+	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" "SOLARNODE" "$SRC_MOUNT"
 
 	if [ -n "$VERBOSE" ]; then
 		echo "Closing output image loop device $out_loopdev."
