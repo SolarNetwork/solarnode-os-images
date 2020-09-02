@@ -11,13 +11,18 @@
 # This script relies on tools available in the coreutils package.
 
 declare -A FS_OPTS
-FS_OPTS[btrfs]="-m dup"
+FS_OPTS[btrfs]="-q -m dup"
 FS_OPTS[ext4]="-q -m 2 -O ^64bit,^metadata_csum"
-FS_OPTS[fat]="-n SOLARBOOT"
+FS_OPTS[vfat]=""
 declare -A MNT_OPTS
 MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=600,compress-force=zstd"
 MNT_OPTS[ext4]="defaults,commit=600"
+MNT_OPTS[vfat]="defaults"
 
+SRC_BOOT_LABEL="SOLARBOOT"
+SRC_ROOT_LABEL="SOLARNODE"
+BOOT_DEV_LABEL="${BOOT_DEV_LABEL:-SOLARBOOT}"
+ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
 COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0"
 EXPAND_SOLARNODE_FS=""
@@ -30,12 +35,14 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments> src script [bind-mounts]
 
- -a <args>     - extra argumnets to pass to the script
- -e <size MB>  - expand the SOLARNODE filesystem by this amount, in MB
- -o <out name> - the output name for the final image
- -v            - increase verbosity of tasks
- -Z <options>  - xz options to use on final image; defaults to '-8 -T 0'
- -z            - compress final image with xz
+ -a <args>       - extra argumnets to pass to the script
+ -P <boot label> - the source image boot partition label; defaults to SOLARBOOT
+ -p <root label> - the source image root partition label; defaults to SOLARNODE
+ -e <size MB>    - expand the SOLARNODE filesystem by this amount, in MB
+ -o <out name>   - the output name for the final image
+ -v              - increase verbosity of tasks
+ -Z <options>    - xz options to use on final image; defaults to '-8 -T 0'
+ -z              - compress final image with xz
 
 The bind-mounts argument must adhere to the systemd-nspawn --bind-ro syntax,
 that is something like 'src:mount'. Multiple mounts should be separarted by
@@ -52,11 +59,13 @@ To expand the root filesystem by 500 MB:
 EOF
 }
 
-while getopts ":a:e:o:vZ:z" opt; do
+while getopts ":a:e:o:P:p:vZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		o) DEST_PATH="${OPTARG}";;
+		P) SRC_BOOT_LABEL="${OPTARG}";;
+		p) SRC_ROOT_LABEL="${OPTARG}";;
 		v) VERBOSE="TRUE";;
 		Z) COMPRESS_DEST_OPTS="${OPTARG}";;
 		z) COMPRESS_DEST_IMAGE="TRUE";;
@@ -146,20 +155,20 @@ setup_src_loopdev () {
 	# seems system needs a little rest before labels are available in lsblk?
 	sleep 1
 
-	SOLARBOOT_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i SOLARBOOT |cut -d' ' -f 1)
+	SOLARBOOT_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_BOOT_LABEL |cut -d' ' -f 1)
 	if [ -z "$SOLARBOOT_PART" ]; then
-		echo "Error: SOLARBOOT partition not discovered"
+		echo "Error: $SRC_BOOT_LABEL partition not discovered"
 		exit 1
 	elif [ -n "$VERBOSE" ]; then
-		echo "Discovered source SOLARBOOT partition ${SOLARBOOT_PART}."
+		echo "Discovered source $SRC_BOOT_LABEL partition ${SOLARBOOT_PART}."
 	fi
 
-	SOLARNODE_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i SOLARNODE |cut -d' ' -f 1)
+	SOLARNODE_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_ROOT_LABEL |cut -d' ' -f 1)
 	if [ -z "$SOLARNODE_PART" ]; then
-		echo "Error: SOLARNODE partition not discovered"
+		echo "Error: $SRC_ROOT_LABEL partition not discovered"
 		exit 1
 	elif [ -n "$VERBOSE" ]; then
-		echo "Discovered source SOLARNODE partition ${SOLARNODE_PART}."
+		echo "Discovered source $SRC_ROOT_LABEL partition ${SOLARNODE_PART}."
 	fi
 
 	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
@@ -175,14 +184,14 @@ setup_src_loopdev () {
 		echo "Error: unable to mount $SOLARNODE_PART on $SRC_MOUNT"
 		exit 1
 	elif [ -n "$VERBOSE" ]; then
-		echo "Mounted source SOLARNODE filesystem on $SRC_MOUNT."
+		echo "Mounted source $SRC_ROOT_LABEL filesystem on $SRC_MOUNT."
 	fi
 
 	FSTYPE_SOLARNODE=$(findmnt -f -n -o FSTYPE "$SOLARNODE_PART")
 	if [ -z "$FSTYPE_SOLARNODE" ]; then
-		echo "Error: SOLARNODE filesystem type not discovered."
+		echo "Error: $SRC_ROOT_LABEL filesystem type not discovered."
 	elif [ -n "$VERBOSE" ]; then
-		echo "Discovered source SOLARNODE filesystem type $FSTYPE_SOLARNODE."
+		echo "Discovered source $SRC_ROOT_LABEL filesystem type $FSTYPE_SOLARNODE."
 	fi
 
 	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
@@ -197,24 +206,24 @@ setup_src_loopdev () {
 		echo "Error: unable to mount $SOLARBOOT_PART on $SRC_MOUNT/boot."
 		exit 1
 	elif [ -n "$VERBOSE" ]; then
-		echo "Mounted source SOLARBOOT filesystem on $SRC_MOUNT/boot."
+		echo "Mounted source $SRC_BOOT_LABEL filesystem on $SRC_MOUNT/boot."
 	fi
 
 	FSTYPE_SOLARBOOT=$(findmnt -f -n -o FSTYPE "$SOLARBOOT_PART")
 	if [ -z "$FSTYPE_SOLARBOOT" ]; then
-		echo "Error: SOLARBOOT filesystem type not discovered."
+		echo "Error: $SRC_BOOT_LABEL filesystem type not discovered."
 	elif [ -n "$VERBOSE" ]; then
-		echo "Discovered source SOLARBOOT filesystem type $FSTYPE_SOLARBOOT."
+		echo "Discovered source $SRC_BOOT_LABEL filesystem type $FSTYPE_SOLARBOOT."
 	fi
 }
 
 close_src_loopdev () {
 	if [ -n "$VERBOSE" ]; then
-		echo "Unmounting source SOLARBOOT filesystem $SRC_MOUNT/boot."
+		echo "Unmounting source $SRC_BOOT_LABEL filesystem $SRC_MOUNT/boot."
 	fi
 	umount "$SRC_MOUNT/boot"
 	if [ -n "$VERBOSE" ]; then
-		echo "Unmounting source SOLARNODE filesystem $SRC_MOUNT."
+		echo "Unmounting source $SRC_ROOT_LABEL filesystem $SRC_MOUNT."
 	fi
 	umount "$SRC_MOUNT"
 	if [ -n "$VERBOSE" ]; then
@@ -224,7 +233,49 @@ close_src_loopdev () {
 	rmdir "$SRC_MOUNT"
 }
 
+disable_ld_preload () {
+	if [ -e "$SRC_MOUNT/etc/ld.so.preload" ]; then
+		echo -n "Disabling preload shared libs from $SRC_MOUNT/etc/ld.so.preload... "
+		sed -i 's/^/#/' "$SRC_MOUNT/etc/ld.so.preload"
+		echo 'OK'
+	fi
+}
+
+enable_ld_preload () {
+	if [ -e "$SRC_MOUNT/etc/ld.so.preload" ]; then
+		echo -n "Enabling preload shared libs in $SRC_MOUNT/etc/ld.so.preload... "
+		sed -i 's/^#//' "$SRC_MOUNT/etc/ld.so.preload"
+		echo 'OK'
+	fi
+}
+
+setup_mounts () {
+	# be sure to work with both UUID= and PARTUUID= forms
+	if grep 'UUID=[^ ]* */boot ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
+		sed -i 's/^.*UUID=[^ ]* *\/boot /LABEL='"$BOOT_DEV_LABEL"' \/boot /' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+	if grep 'UUID=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
+		sed -i 's/^.*UUID=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+	if grep 'compress=lzo' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		echo -n "Changing compression in $SRC_MOUNT/etc/fstab from lzo to zstd... "
+		sed -i 's/compress=lzo/compress=zstd/' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+	if ! grep '^tmpfs /run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		echo -n "Adding /run mount in $SRC_MOUNT/etc/fstab with explicit size... "
+		echo 'tmpfs /run tmpfs rw,nosuid,noexec,relatime,size=50%,mode=755 0 0' >>$SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+}
+
 setup_chroot () {
+	disable_ld_preload
+	setup_mounts
 	if [ -L "$SRC_MOUNT/etc/resolv.conf" -o -e "$SRC_MOUNT/etc/resolv.conf" ]; then
 		mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"
 	else
@@ -254,6 +305,7 @@ clean_chroot () {
 	if [ -d "$SCRIPT_DIR" ]; then
 		rm -rf ${VERBOSE//TRUE/-v} "$SCRIPT_DIR"
 	fi
+	enable_ld_preload
 }
 
 execute_chroot () {
@@ -296,7 +348,7 @@ copy_part () {
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating $part $fstype filesystem with options ${FS_OPTS[$fstype]}."
 	fi
-	if ! mkfs.$fstype -q ${FS_OPTS[$fstype]} "$part"; then
+	if ! mkfs.$fstype ${FS_OPTS[$fstype]} "$part"; then
 		echo "Error: failed to create $part $fstype filesystem."
 		exit 1
 	fi
@@ -310,7 +362,8 @@ copy_part () {
 	fi
 	case $fstype in
 		btrfs) btrfs filesystem label "$tmp_mount" "$label";;
-		ext*) e2label "$part" "$label";;
+		ext*)  e2label "$part" "$label";;
+		fat)   fatlabel "$part" "$label";;
 	esac
 	if [ -n "$VERBOSE" ]; then
 		echo "Copying files from $src to $tmp_mount..."
