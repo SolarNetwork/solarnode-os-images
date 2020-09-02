@@ -360,6 +360,9 @@ copy_part () {
 		echo "Error: failed to mount $part on $tmp_mount."
 		exit 1
 	fi
+	if [ -n "$VERBOSE" ]; then
+		echo "Labling $part as $label"
+	fi
 	case $fstype in
 		btrfs) btrfs filesystem label "$tmp_mount" "$label";;
 		ext*)  e2label "$part" "$label";;
