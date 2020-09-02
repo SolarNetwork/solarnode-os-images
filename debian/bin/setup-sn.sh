@@ -213,7 +213,7 @@ setup_user () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
-			killall -u pi
+			killall -u $PI_USER
 			deluser "$PI_USER" >/dev/null 2>>$ERR_LOG && echo "OK" || {
 				echo "ERROR"
 				echo "You might need to log out, then back in as the $APP_USER user to continue."
