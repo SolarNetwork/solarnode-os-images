@@ -286,40 +286,9 @@ setup_mounts () {
 	fi
 }
 
-setup_boot_cmdline () {
-	local dev="$1"
-	local mnt="$2"
-	local fs_type=$(findmnt -f -n -o FSTYPE "$dev")
-	case $fs_type in
-		ext*) setup_dev_ext "$dev" "$BOOT_DEV_LABEL";;
-	esac
-	if grep 'root=.*UUID=' $SRC_MOUNT/boot/cmdline.txt >/dev/null 2>&1; then
-		echo -n "Changing root from UUID to LABEL=SOLARBOOT in $SRC_MOUNT/cmdline.txt... "
-		sed -i 's/root=.*UUID=[0-9a-zA-Z-]*/root=LABEL='"$ROOT_DEV_LABEL"'/' $SRC_MOUNT/boot/cmdline.txt \
-			&& echo "OK" || echo "ERROR"
-	fi
-	if [ -n "$DEST_ROOT_FSTYPE" ]; then
-		echo -n "Changing root filesystem type to $DEST_ROOT_FSTYPE in $SRC_MOUNT/cmdline.txt... "
-		sed -i 's/rootfstype=[0-9a-zA-Z]*/rootfstype='"$DEST_ROOT_FSTYPE"'/' $SRC_MOUNT/boot/cmdline.txt \
-			&& echo "OK" || echo "ERROR"
-	fi
-	if grep ' init=' $SRC_MOUNT/boot/cmdline.txt >/dev/null 2>&1; then
-		echo -n "Removing init= from $SRC_MOUNT/boot/cmdline.txt... "
-		sed -i 's/ init=[^ ]*//' $SRC_MOUNT/boot/cmdline.txt \
-			&& echo "OK" || echo "ERROR"
-	fi
-	if ! grep ' fsck.repair=' $SRC_MOUNT/boot/cmdline.txt >/dev/null 2>&1; then
-		echo -n "Adding fsck.repair=yes to $SRC_MOUNT/boot/cmdline.txt... "
-		echo ' fsck.repair=yes' >> $SRC_MOUNT/boot/cmdline.txt \
-			&& echo "OK" || echo "ERROR"
-	fi
-}
-
-
 setup_chroot () {
 	disable_ld_preload
 	setup_mounts
-	setup_boot_cmdline
 	if [ -L "$SRC_MOUNT/etc/resolv.conf" -o -e "$SRC_MOUNT/etc/resolv.conf" ]; then
 		mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"
 	else
@@ -381,7 +350,9 @@ copy_bootloader () {
 	elif [ -n "$VERBOSE" ]; then
 		echo "Copied ${bl_len} sectors starting from $bl_offset for bootloader from $SRC_IMG to $dev."
 	fi
-}	
+}
+
+LAST_PARTUUID=""
 
 copy_part () {
 	local part="$1"
@@ -404,7 +375,9 @@ copy_part () {
 		echo "Error: failed to mount $part on $tmp_mount."
 		exit 1
 	fi
+	LAST_PARTUUID=$(blkid -o export "$part" |grep PARTUUID |cut -d= -f2)
 	if [ -n "$VERBOSE" ]; then
+		echo "$part PARTUUID = $LAST_PARTUUID"
 		echo "Labling $part as $label"
 	fi
 	case $fstype in
@@ -416,6 +389,46 @@ copy_part () {
 		echo "Copying files from $src to $tmp_mount..."
 	fi
 	rsync -aHWXhx ${VERBOSE//TRUE/--info=progress2,stats1} "$src"/ "$tmp_mount"/
+	umount "$tmp_mount"
+	rmdir "$tmp_mount"
+}
+
+setup_boot_cmdline () {
+	local part="$1"
+	local fstype="$2"
+	local rootpartuuid="$3"
+	local tmp_mount=$(mktemp -d -t sn-XXXXX)
+	if [ -n "$VERBOSE" ]; then
+		echo "Mounting $part on $tmp_mount with options ${MNT_OPTS[$fstype]}."
+	fi
+	if ! mount -o ${MNT_OPTS[$fstype]} "$part" "$tmp_mount"; then
+		echo "Error: failed to mount $part on $tmp_mount."
+		exit 1
+	fi
+	if [ -e "$tmp_mount/cmdline.txt" ]; then
+		if grep ' root=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Changing root to PARTUUID=$rootpartuuid in $tmp_mount/cmdline.txt... "
+			sed -i 's/root=[^ ]*/root=PARTUUID='"$rootpartuuid"'/' $tmp_mount/cmdline.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
+		if [ -n "$DEST_ROOT_FSTYPE" ]; then
+			if grep ' rootfstype=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
+				echo -n "Changing rootfstype to $DEST_ROOT_FSTYPE in $tmp_mount/cmdline.txt... "
+				sed -i 's/rootfstype=[^ ]*/rootfstype='"$DEST_ROOT_FSTYPE"'/' $tmp_mount/cmdline.txt \
+					&& echo "OK" || echo "ERROR"
+			fi
+		fi
+		if grep ' init=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Removing init from $tmp_mount/cmdline.txt... "
+			sed -i 's/ init=[^ ]*//' $tmp_mount/cmdline.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
+		if ! grep ' fsck.repair=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Adding fsck.repair=yes to $tmp_mount/cmdline.txt... "
+			echo ' fsck.repair=yes' >> $tmp_mount/cmdline.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
+	fi
 	umount "$tmp_mount"
 	rmdir "$tmp_mount"
 }
@@ -445,6 +458,8 @@ copy_img () {
 	copy_bootloader "$out_loopdev"
 	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/boot"
 	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" "SOLARNODE" "$SRC_MOUNT"
+
+	setup_boot_cmdline "$out_loopdev${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$LAST_PARTUUID"
 
 	if [ -n "$VERBOSE" ]; then
 		echo "Closing output image loop device $out_loopdev."
