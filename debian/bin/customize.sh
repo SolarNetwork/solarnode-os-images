@@ -363,7 +363,7 @@ copy_part () {
 	case $fstype in
 		btrfs) btrfs filesystem label "$tmp_mount" "$label";;
 		ext*)  e2label "$part" "$label";;
-		fat)   fatlabel "$part" "$label";;
+		vfat)  fatlabel "$part" "$label";;
 	esac
 	if [ -n "$VERBOSE" ]; then
 		echo "Copying files from $src to $tmp_mount..."
