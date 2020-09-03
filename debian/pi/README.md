@@ -143,6 +143,24 @@ sha256sum solarnodeos-deb9-pi-1GB.img.xz >solarnodeos-deb9-pi-1GB.img.xz.sha256
 These steps, and some additional cleanup tasks, are automated via a [prep-disk.sh][prep-disk] and
 [prep-image.sh][prep-image] scripts.
 
+# Setup script
+
+The [bin/setup-sn-pi.sh](bin/setup-sn-pi.sh) script performs most of the work for customizing a
+Raspbian-based OS image into SolarNodeOS. This can be executed via the [customize](../bin/customize.sh)
+script, something like this:
+
+```sh
+sudo ../bin/customize.sh -v -z \
+	-E 500 \
+	-P boot -p rootfs \
+	-a '-o 172.16.159.196:3142' \                        # e.g. if running apt-cacher-ng
+	-o solarnodeos-pi-2GB-$(date '+%Y%m%d').img \
+	/var/tmp/2020-08-20-raspios-buster-armhf-lite.img \
+	bin/setup-sn-pi.sh \
+	.:/tmp/overlay
+```
+
+
 [1]: https://www.raspberrypi.org/
 [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Raspbian
 [images]: https://sourceforge.net/projects/solarnetwork/files/solarnode/pi/
