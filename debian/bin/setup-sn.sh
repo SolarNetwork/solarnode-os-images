@@ -5,9 +5,10 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
-BOARD="nanopiair"
 APP_USER="solar"
 APP_USER_PASS="solar"
+APT_PROXY=""
+BOARD="raspberrypi"
 BOOT_DEV="/dev/mmcblk0p1"
 BOOT_DEV_LABEL="SOLARBOOT"
 DRY_RUN=""
@@ -47,13 +48,15 @@ Arguments:
                           defaults to conf/armbian-packages-add-early.txt
  -E                     - skip setting the file system expansion marker
  -h <hostname>          - the hostname to use; defaults to solarnode
- -i <input dir>         - path to input configuration directory; defaults to /tmp/overlay
+ -i <input dir>         - path to input configuration directory; defaults
+                          to /tmp/overlay
  -K <package list file> - path to list of packages to add;
                           defaults to conf/armbian-packages-add.txt
  -k <package list file> - path to list of packages to keep;
                           defaults to conf/armbian-packages-keep.txt
  -N <name>              - release name; defaults to 'SolarNodeOS 10'
  -n                     - dry run; do not make any actual changes
+ -o <proxy>             - host:port of Apt HTTP proxy to use
  -P                     - update package cache
  -p <apt repo url>      - the SNF package repository to use; defaults to
                           https://debian.repo.solarnetwork.org.nz;
@@ -72,7 +75,7 @@ Arguments:
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:N:nPp:q:R:r:SU:u:V:v" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:v" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
@@ -86,6 +89,7 @@ while getopts ":a:B:b:e:Eh:i:K:k:N:nPp:q:R:r:SU:u:V:v" opt; do
 		k) PKG_KEEP="${OPTARG}";;
 		N) RELEASE_NAME="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
+		o) APT_PROXY="${OPTARG}";;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
 		q) PKG_DIST="${OPTARG}";;
@@ -108,6 +112,14 @@ shift $(($OPTIND - 1))
 cat /dev/null >$ERR_LOG
 cat /dev/null >$LOG
 
+export LANG=C LC_ALL="en_US.UTF-8"
+export DEBIAN_FRONTEND=noninteractive
+
+apt_proxy=""
+if [ -n "$APT_PROXY" ]; then
+	apt_proxy="-o Acquire::http::Proxy=http://${APT_PROXY}"
+fi
+
 check_err () {
 	if [ -s "$ERR_LOG" ]; then
 		echo ""
@@ -120,7 +132,12 @@ pkgs_install () {
 	if [ -n "$DRY_RUN" ]; then
 		echo "DRY RUN"
 	else
-		if ! apt-get -qy install --no-install-recommends $@; then
+		if ! apt-get install -qy \
+				-o Dpkg::Options::="--force-confdef" \
+				-o Dpkg::Options::="--force-confnew" \
+				${apt_proxy} \
+				--no-install-recommends \
+				"$@" 2>/dev/null; then
 			echo "Error installing package $1"
 			exit 1
 		fi
@@ -180,15 +197,8 @@ setup_dns () {
 	if grep -q "$HOSTNAME" /etc/hosts; then
 		echo "/etc/hosts contains $HOSTNAME already."
 	else
-		echo "Setting up $HOSTNAME /etc/hosts entry..."
-		sed "s/$BOARD/$HOSTNAME/" /etc/hosts >/tmp/hosts.new
-		if diff -q /etc/hosts /tmp/hosts.new >/dev/null; then
-			# no change
-			rm -f /tmp/hosts.new
-		else
-			chmod 644 /tmp/hosts.new
-			sudo mv -f /tmp/hosts.new /etc/hosts
-		fi
+		echo -n "Replacing $BOARD with $HOSTNAME in /etc/hosts... "
+		sed -i "s/$BOARD/$HOSTNAME/" /etc/hosts && echo "OK" || echo "ERROR"
 	fi
 }
 
@@ -379,7 +389,6 @@ setup_software () {
 		fi
 	fi
 
-	pkg_autoremove
 	apt-get clean
 }
 
@@ -394,6 +403,9 @@ setup_software_late () {
 		done < "$INPUT_DIR/$PKG_DEL_LATE"
 	fi
 
+	if [ -n "$VERBOSE" ]; then
+		echo "Removing packages automatically installed but no longer needed."
+	fi
 	pkg_autoremove
 	apt-get clean
 }
