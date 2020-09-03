@@ -8,11 +8,12 @@ fi
 APP_USER="solar"
 APP_USER_PASS="solar"
 APT_PROXY=""
+BOARD="raspberrypi"
 BOOT_DEV="/dev/mmcblk0p1"
 BOOT_DEV_LABEL="SOLARBOOT"
 DRY_RUN=""
 HOSTNAME="solarnode"
-INPUT_DIR="/var/tmp/sn"
+INPUT_DIR="/tmp/overlay"
 PKG_KEEP="conf/raspbian-packages-keep.txt"
 PKG_ADD="conf/raspbian-packages-add.txt"
 PKG_ADD_EARLY="conf/raspbian-packages-add-early.txt"
@@ -38,6 +39,7 @@ Usage: $0 <arguments>
 Setup script for a minimal SolarNode OS based on Raspberry Pi OS.
 
 Arguments:
+ -a <board>             - the Armbian board being set up; defaults to nanopiair
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot dev>          - the boot device; defaults to /dev/mmcblk0p1
  -d <package list file> - path to list of packages to delete late in script;
@@ -47,7 +49,7 @@ Arguments:
  -E                     - skip setting the file system expansion marker
  -h <hostname>          - the hostname to use; defaults to solarnode
  -i <input dir>         - path to input configuration directory; defaults
-                          to /var/tmp/sn
+                          to /tmp/overlay
  -K <package list file> - path to list of packages to add;
                           defaults to conf/raspbian-packages-add.txt
  -k <package list file> - path to list of packages to keep;
@@ -73,8 +75,9 @@ Arguments:
 EOF
 }
 
-while getopts ":B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:v" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:v" opt; do
 	case $opt in
+		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
 		b) BOOT_DEV="${OPTARG}";;
 		d) PKG_DEL_LATE="${OPTARG}";;
@@ -134,7 +137,7 @@ pkgs_install () {
 				-o Dpkg::Options::="--force-confnew" \
 				${apt_proxy} \
 				--no-install-recommends \
-				"$@"; then
+				"$@" 2>/dev/null; then
 			echo "Error installing package $1"
 			exit 1
 		fi
@@ -194,8 +197,8 @@ setup_dns () {
 	if grep -q "$HOSTNAME" /etc/hosts; then
 		echo "/etc/hosts contains $HOSTNAME already."
 	else
-		echo "Setting up $HOSTNAME /etc/hosts entry..."
-		sed -i "s/raspberrypi/$HOSTNAME/" /etc/hosts
+		echo -n "Replacing $BOARD with $HOSTNAME in /etc/hosts... "
+		sed -i "s/$BOARD/$HOSTNAME/" /etc/hosts && echo "OK" || echo "ERROR"
 	fi
 }
 
