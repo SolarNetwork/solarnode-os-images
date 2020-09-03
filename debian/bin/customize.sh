@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #
-# Customize an existing SolarNodeOS image using systemd-nspawn (from systemd-container
-# package).
+# Customize an existing OS image using systemd-nspawn (from systemd-container package).
 #
 # For other architecture support (e.g. arm) make sure binfmt-support and qemu-user-static
 # packages are installed, e.g.
