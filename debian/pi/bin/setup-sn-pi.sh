@@ -430,6 +430,19 @@ setup_expandfs () {
 			fi
 		fi
 	fi
+	
+	if [ -L /etc/systemd/system/basic.target.wants/armbian-resize-filesystem.service ]; then
+		echo -n 'Disabling Armbian filesystem expand service... '
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			if rm /etc/systemd/system/basic.target.wants/armbian-resize-filesystem.service; then
+				echo 'OK'
+			else
+				echo 'ERROR'
+			fi
+		fi
+	fi
 }
 
 setup_swap () {
@@ -451,6 +464,16 @@ setup_busybox_links () {
 		echo 'DRY RUN'
 	else
 		busybox --install -s
+		echo 'OK'
+	fi
+}
+
+setup_motd () {
+	echo -n 'Removing Armbian MOTD configuration... '
+	if [ -n "$DRY_RUN" ]; then
+		echo 'DRY RUN'
+	else
+		find /etc/update-motd.d -name '*armbian*' -delete 2>/dev/null
 		echo 'OK'
 	fi
 }

@@ -487,6 +487,13 @@ setup_issue () {
 	fi
 }
 
+setup_ssh () {
+	if ! systemctl is-active ssh >/dev/null; then
+		echo -n "Enabling ssh... "
+		systemctl enable ssh && echo 'OK' || echo 'ERROR'
+	fi
+}
+
 setup_software_early
 setup_hostname
 setup_dns
@@ -509,4 +516,5 @@ setup_issue
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software_late
 fi
+setup_ssh
 check_err
