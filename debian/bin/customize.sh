@@ -462,17 +462,6 @@ copy_img () {
 		echo "Error copying partition table from $LOOPDEV to $outdev."
 		exit 1
 	fi
-	#if [ -n "$SHRINK_SOLARNODE_FS" ]; then
-	#	local part_num=$(sfdisk -ql "$out_loopdev" -o Device |tail +2 |awk '{print NR,$0}' \
-	#		|grep "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" |cut -d' ' -f1)
-	#	local sector_size=$(sfdisk -ql "$out_loopdev" -o Sectors |tail +$((1 + $part_num)) |head -1)
-	#	sector_size=$(echo "$sector_size - $SHRINK_SOLARNODE_FS * 1024 * 1024 / 512" |bc)
-	#	echo ",$sector_size" |sfdisk ${out_loopdev} -N${part_num} --no-reread -q
-	#	partx -u ${out_loopdev}
-	#	if [ -n "$VERBOSE" ]; then
-	#		echo "Shrunk ${out_loopdev} partition $part_num by $SHRINK_SOLARNODE_FS MB (output size $sector_size sectors)."
-	#	fi
-	#fi
 
 	copy_bootloader "$out_loopdev"
 	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/boot"
