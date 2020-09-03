@@ -386,7 +386,6 @@ setup_software () {
 		fi
 	fi
 
-	pkg_autoremove
 	apt-get clean
 }
 
