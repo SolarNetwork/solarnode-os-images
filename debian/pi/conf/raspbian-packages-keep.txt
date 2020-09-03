@@ -88,6 +88,7 @@ libcap2-bin
 libcom-err2
 libcryptsetup12
 libcups2
+libcurl4
 libdb5.3
 libdbus-1-3
 libdebconfclient0
@@ -138,6 +139,7 @@ libnewt0.52
 libnfnetlink0
 libnftables0
 libnftnl11
+libnghttp2-14
 libnl-3-200
 libnl-genl-3-200
 libnl-route-3-200
@@ -155,10 +157,11 @@ libpcsclite1
 libpng16-16
 libpopt0
 libprocps7
+libpsl5
 libraspberrypi-bin
 libraspberrypi0
 libreadline7
-librxtx-java
+librtmp1
 libsasl2-2
 libsasl2-modules-db
 libseccomp2
@@ -170,6 +173,7 @@ libslang2
 libsmartcols1
 libsqlite3-0
 libss2
+libssh2-1
 libssl1.1
 libstdc++6
 libsystemd0
@@ -226,6 +230,7 @@ raspberrypi-kernel
 raspbian-archive-keyring
 raspi-copies-and-fills
 readline-common
+rfkill
 rsync
 sed
 sensible-utils
