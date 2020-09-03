@@ -14,10 +14,10 @@ BOOT_DEV_LABEL="SOLARBOOT"
 DRY_RUN=""
 HOSTNAME="solarnode"
 INPUT_DIR="/tmp/overlay"
-PKG_KEEP="conf/raspbian-packages-keep.txt"
-PKG_ADD="conf/raspbian-packages-add.txt"
-PKG_ADD_EARLY="conf/raspbian-packages-add-early.txt"
-PKG_DEL_LATE="conf/raspbian-packages-del-late.txt"
+PKG_KEEP="conf/setup-packages-keep.txt"
+PKG_ADD="conf/setup-packages-add.txt"
+PKG_ADD_EARLY="conf/setup-packages-add-early.txt"
+PKG_DEL_LATE="conf/setup-packages-del-late.txt"
 PI_USER="pi"
 RELEASE_NAME="SolarNodeOS 10"
 ROOT_DEV="/dev/mmcblk0p2"
@@ -36,24 +36,24 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments>
 
-Setup script for a minimal SolarNode OS based on Raspberry Pi OS.
+Setup script for a minimal SolarNode OS based on an upstream OS.
 
 Arguments:
  -a <board>             - the Armbian board being set up; defaults to nanopiair
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot dev>          - the boot device; defaults to /dev/mmcblk0p1
  -d <package list file> - path to list of packages to delete late in script;
-                          defaults to conf/raspbian-packages-del-late.txt
+                          defaults to conf/setup-packages-del-late.txt
  -e <package list file> - path to list of packages to add early in script;
-                          defaults to conf/raspbian-packages-add-early.txt
+                          defaults to conf/setup-packages-add-early.txt
  -E                     - skip setting the file system expansion marker
  -h <hostname>          - the hostname to use; defaults to solarnode
  -i <input dir>         - path to input configuration directory; defaults
                           to /tmp/overlay
  -K <package list file> - path to list of packages to add;
-                          defaults to conf/raspbian-packages-add.txt
+                          defaults to conf/setup-packages-add.txt
  -k <package list file> - path to list of packages to keep;
-                          defaults to conf/raspbian-packages-keep.txt
+                          defaults to conf/setup-packages-keep.txt
  -N <name>              - release name; defaults to 'SolarNodeOS 10'
  -n                     - dry run; do not make any actual changes
  -o <proxy>             - host:port of Apt HTTP proxy to use
@@ -499,12 +499,14 @@ setup_issue () {
 	fi
 }
 
-setup_startup_screen () {
-	if grep -q "logo.nologo" /boot/cmdline.txt; then
-		echo "Raspberry logos on screen disabled in /boot/cmdline.txt already."
-	else
-		echo "Disabling raspberry logos on screen in /boot/cmdline.txt..."
-		sed -i 's/$/ quiet logo.nologo/' /boot/cmdline.txt
+setup_boot_cmdline () {
+	if [ -e /boot/cmdline.txt ]; then
+		if grep -q "logo.nologo" /boot/cmdline.txt; then
+			echo "Raspberry logos on screen disabled in /boot/cmdline.txt already."
+		else
+			echo -n "Disabling raspberry logos on screen in /boot/cmdline.txt... "
+			sed -i 's/$/ quiet logo.nologo/' /boot/cmdline.txt && echo "OK" || echo "ERROR"
+		fi
 	fi
 }
 
@@ -532,7 +534,8 @@ setup_swap
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_busybox_links
 fi
-setup_startup_screen
+setup motd
+setup_boot_cmdline
 setup_issue
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software_late
