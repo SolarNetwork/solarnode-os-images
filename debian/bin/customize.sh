@@ -31,6 +31,7 @@ ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
 COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0"
 EXPAND_SOLARNODE_FS=""
+SHRINK_SOLARNODE_FS=""
 DEST_PATH=""
 SCRIPT_ARGS=""
 SRC_IMG=""
@@ -41,7 +42,8 @@ do_help () {
 Usage: $0 <arguments> src script [bind-mounts]
 
  -a <args>       - extra argumnets to pass to the script
- -e <size MB>    - expand the SOLARNODE filesystem by this amount, in MB
+ -E <size MB>    - shrink the SOLARNODE partition by this amount, in MB
+ -e <size MB>    - expand the SOLARNODE partition by this amount, in MB
  -P <boot label> - the source image boot partition label; defaults to SOLARBOOT
  -p <root label> - the source image root partition label; defaults to SOLARNODE
  -o <out name>   - the output name for the final image
@@ -65,9 +67,10 @@ To expand the root filesystem by 500 MB:
 EOF
 }
 
-while getopts ":a:e:o:P:p:r:vZ:z" opt; do
+while getopts ":a:E:e:o:P:p:r:vZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
+		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		o) DEST_PATH="${OPTARG}";;
 		P) SRC_BOOT_LABEL="${OPTARG}";;
@@ -436,8 +439,14 @@ setup_boot_cmdline () {
 copy_img () {
 	local size=$(wc -c <"$SRC_IMG")
 	local size_mb=$(echo "$size / 1024 / 1024" |bc)
+	if [ -n "$SHRINK_SOLARNODE_FS" ]; then
+		size_mb=$(echo "$size_mb - $SHRINK_SOLARNODE_FS" |bc)
+		if [ -n "$VERBOSE" ]; then
+			echo "Shrinking output image by $SHRINK_SOLARNODE_FS MB."
+		fi
+	fi
 	local out_img=$(mktemp -t img-XXXXX)
-	if [ -n "$VEBOSE" ]; then
+	if [ -n "$VERBOSE" ]; then
 		echo "Creating ${size_mb}MB output image $out_img."
 	fi
 	if ! dd if=/dev/zero of="$out_img" bs=1M count=$size_mb status=none; then
@@ -454,6 +463,17 @@ copy_img () {
 		echo "Error copying partition table from $LOOPDEV to $outdev."
 		exit 1
 	fi
+	#if [ -n "$SHRINK_SOLARNODE_FS" ]; then
+	#	local part_num=$(sfdisk -ql "$out_loopdev" -o Device |tail +2 |awk '{print NR,$0}' \
+	#		|grep "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" |cut -d' ' -f1)
+	#	local sector_size=$(sfdisk -ql "$out_loopdev" -o Sectors |tail +$((1 + $part_num)) |head -1)
+	#	sector_size=$(echo "$sector_size - $SHRINK_SOLARNODE_FS * 1024 * 1024 / 512" |bc)
+	#	echo ",$sector_size" |sfdisk ${out_loopdev} -N${part_num} --no-reread -q
+	#	partx -u ${out_loopdev}
+	#	if [ -n "$VERBOSE" ]; then
+	#		echo "Shrunk ${out_loopdev} partition $part_num by $SHRINK_SOLARNODE_FS MB (output size $sector_size sectors)."
+	#	fi
+	#fi
 
 	copy_bootloader "$out_loopdev"
 	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/boot"
