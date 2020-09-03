@@ -326,7 +326,10 @@ clean_chroot () {
 execute_chroot () {
 	local binds="$1"
 	if [ -n "$binds" ]; then
-		binds="--bind-ro=$binds"
+		if [ -n "$VERBOSE" ]; then
+			echo "Binding container dir $binds"
+		fi
+		binds="--bind=$binds"
 	fi
 	systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
 		--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
