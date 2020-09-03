@@ -4,9 +4,9 @@ ttf-bitstream-vera
 openjdk-11-jre-headless
 wpasupplicant
 yasdishell
+sn-armbian
 sn-nftables
 sn-osstat
-sn-rxtx
 sn-solarpkg
 sn-solarssh
 sn-system
