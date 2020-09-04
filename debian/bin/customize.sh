@@ -448,7 +448,7 @@ setup_boot_cmdline () {
 		fi
 		if ! grep ' fsck.repair=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
 			echo -n "Adding fsck.repair=yes to $tmp_mount/cmdline.txt... "
-			echo ' fsck.repair=yes' >> $tmp_mount/cmdline.txt \
+			sed -i '1s/$/ fsck.repair/' $tmp_mount/cmdline.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
