@@ -138,7 +138,7 @@ pkgs_install () {
 				-o Dpkg::Options::="--force-confnew" \
 				${apt_proxy} \
 				--no-install-recommends \
-				"$@" 2>/dev/null; then
+				"$@" >>$LOG 2>>$ERR_LOG; then
 			echo "Error installing package $1"
 			exit 1
 		fi
@@ -160,7 +160,7 @@ pkgs_remove () {
 	if [ -n "$DRY_RUN" ]; then
 		echo "DRY RUN"
 	else
-		DEBIAN_FRONTEND=noninteractive apt-get -qy remove --purge $@
+		apt-get -qy remove --purge $@
 		echo "OK"
 	fi
 }
@@ -176,9 +176,9 @@ pkg_remove () {
 
 # remove package if installed
 pkg_autoremove () {
-		if [ -z "$DRY_RUN" ]; then
-			DEBIAN_FRONTEND=noninteractive apt-get -qy autoremove --purge $1
-		fi
+	if [ -z "$DRY_RUN" ]; then
+		apt-get -qy autoremove --purge $1
+	fi
 }
 
 setup_hostname () {
@@ -199,7 +199,11 @@ setup_dns () {
 		echo "/etc/hosts contains $HOSTNAME already."
 	else
 		echo -n "Replacing $BOARD with $HOSTNAME in /etc/hosts... "
-		sed -i "s/$BOARD/$HOSTNAME/" /etc/hosts && echo "OK" || echo "ERROR"
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			sed -i "s/$BOARD/$HOSTNAME/" /etc/hosts 2>>$ERR_LOG && echo "OK" || echo "ERROR"
+		fi
 	fi
 }
 
@@ -247,7 +251,7 @@ setup_user () {
 			if [ -n "$DRY_RUN" ]; then
 				echo "DRY RUN"
 			else
-				passwd -l root >/dev/null && echo "OK" || echo "ERROR"
+				passwd -l root >/dev/null 2>>$ERR_LOG && echo "OK" || echo "ERROR"
 			fi
 			;;
 	esac
@@ -327,13 +331,18 @@ setup_systemd () {
 	if grep -q '^SystemMaxUse=10M' /etc/systemd/journald.conf >/dev/null; then
 		true
 	else
-		echo 'Configuring SystemMaxUse in /etc/systemd/journald.conf; will be active on reboot.'
-		if grep -q 'SystemMaxUse' /etc/systemd/journald.conf; then
-			# update
-			sed -i -e '/SystemMaxUse/c SystemMaxUse=10M' /etc/systemd/journald.conf || true
+		echo -n 'Configuring SystemMaxUse in /etc/systemd/journald.conf; will be active on reboot... '
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
 		else
-			# add in
-			echo 'SystemMaxUse=10M' >>/etc/systemd/journald.conf
+			if grep -q 'SystemMaxUse' /etc/systemd/journald.conf; then
+				# update
+				sed -i -e '/SystemMaxUse/c SystemMaxUse=10M' /etc/systemd/journald.conf || true
+			else
+				# add in
+				echo 'SystemMaxUse=10M' >>/etc/systemd/journald.conf
+			fi
+			echo 'OK'
 		fi
 	fi
 }
@@ -412,11 +421,18 @@ setup_software_late () {
 		echo "Removing packages automatically installed but no longer needed."
 	fi
 	pkg_autoremove
-	apt-get clean
+	if [ -z "$DRY_RUN" ]; then
+		apt-get clean
+	fi
 }
 
 setup_time () {
-	timedatectl set-ntp true
+	echo -n 'Enabling NTP... '
+	if [ -n "$DRY_RUN" ]; then
+		echo 'DRY RUN'
+	else
+		timedatectl set-ntp true >>$LOG 2>>$ERR_LOG && echo 'OK' || echo 'ERROR'
+	fi
 }
 
 setup_expandfs () {
@@ -510,7 +526,11 @@ setup_boot_cmdline () {
 			echo "Raspberry logos on screen disabled in /boot/cmdline.txt already."
 		else
 			echo -n "Disabling raspberry logos on screen in /boot/cmdline.txt... "
-			sed -i 's/$/ quiet logo.nologo/' /boot/cmdline.txt && echo "OK" || echo "ERROR"
+			if [ -n "$DRY_RUN" ]; then
+				echo 'DRY RUN'
+			else
+				sed -i 's/$/ quiet logo.nologo/' /boot/cmdline.txt && echo "OK" || echo "ERROR"
+			fi
 		fi
 	fi
 }
@@ -518,7 +538,11 @@ setup_boot_cmdline () {
 setup_ssh () {
 	if ! systemctl is-active ssh >/dev/null; then
 		echo -n "Enabling ssh... "
-		systemctl enable ssh && echo 'OK' || echo 'ERROR'
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			systemctl enable ssh && echo 'OK' || echo 'ERROR'
+		fi
 	fi
 }
 
