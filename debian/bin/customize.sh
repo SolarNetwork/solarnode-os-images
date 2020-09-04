@@ -351,8 +351,9 @@ execute_chroot () {
 			./customize \
 				${VERBOSE//TRUE/-v} \
 				${SCRIPT_ARGS}; then
-		echo 'Error running setup script in container!'
-		exit 1
+		echo "!!!"
+		echo "!!! Error running setup script in container!"
+		echo "!!!"
 	fi
 }
 
