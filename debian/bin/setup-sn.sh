@@ -166,7 +166,7 @@ pkgs_remove () {
 	if [ -n "$DRY_RUN" ]; then
 		echo "DRY RUN"
 	else
-		apt-get -qy remove --purge $@
+		apt-get -qy remove --purge $@ >>$LOG 2>>$ERR_LOG
 		echo "OK"
 	fi
 }
@@ -183,7 +183,7 @@ pkg_remove () {
 # remove package if installed
 pkg_autoremove () {
 	if [ -z "$DRY_RUN" ]; then
-		apt-get -qy autoremove --purge $1
+		apt-get -qy autoremove --purge $1 >>$LOG 2>>$ERR_LOG
 	fi
 }
 
@@ -439,7 +439,8 @@ setup_time () {
 	if [ -n "$DRY_RUN" ]; then
 		echo 'DRY RUN'
 	else
-		timedatectl set-ntp true >>$LOG 2>>$ERR_LOG && echo 'OK' || echo 'ERROR'
+		timedatectl set-ntp true >>$LOG 2>>$ERR_LOG
+		echo 'OK'
 	fi
 }
 
@@ -528,19 +529,25 @@ setup_issue () {
 	fi
 }
 
-setup_boot_cmdline () {
+append_boot_cmdline () {
 	if [ -e /boot/cmdline.txt ]; then
-		if grep -q "logo.nologo" /boot/cmdline.txt; then
-			echo "Raspberry logos on screen disabled in /boot/cmdline.txt already."
+		if grep -q "$1" /boot/cmdline.txt; then
+			echo "$1 configured in /boot/cmdline.txt already."
 		else
-			echo -n "Disabling raspberry logos on screen in /boot/cmdline.txt... "
+			echo -n "Adding $1 to /boot/cmdline.txt... "
 			if [ -n "$DRY_RUN" ]; then
 				echo 'DRY RUN'
 			else
-				sed -i 's/$/ quiet logo.nologo/' /boot/cmdline.txt && echo "OK" || echo "ERROR"
+				sed -i '1s/$/ '"$1"'/' /boot/cmdline.txt && echo "OK" || echo "ERROR"
 			fi
 		fi
 	fi
+}
+	
+
+setup_boot_cmdline () {
+	append_boot_cmdline 'logo.nologo'
+	append_boot_cmdline 'quiet'
 }
 
 setup_ssh () {
@@ -571,7 +578,7 @@ setup_swap
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_busybox_links
 fi
-setup motd
+setup_motd
 setup_boot_cmdline
 setup_issue
 if [ -z "$SKIP_SOFTWARE" ]; then
