@@ -29,8 +29,8 @@ PKG_DIST="buster"
 UPDATE_PKG_CACHE=""
 VERBOSE=""
 
-LOG="/var/tmp/setup-sn.log"
-ERR_LOG="/var/tmp/setup-sn.err"
+LOG="$INPUT_DIR/setup-sn.log"
+ERR_LOG="$INPUT_DIR/setup-sn.err"
 
 do_help () {
 	cat 1>&2 <<EOF
@@ -112,7 +112,8 @@ shift $(($OPTIND - 1))
 cat /dev/null >$ERR_LOG
 cat /dev/null >$LOG
 
-export LANG=C LC_ALL="en_US.UTF-8"
+export LANG=C
+export LC_ALL=C
 export DEBIAN_FRONTEND=noninteractive
 
 apt_proxy=""
@@ -373,6 +374,8 @@ setup_software () {
 		if [ -n "$to_remove" ]; then
 			pkgs_remove $to_remove
 		fi
+	elif [ -n "$PKG_KEEP" -a ! -e "$INPUT_DIR/$PKG_KEEP" ]; then
+		echo "Warning: $INPUT_DIR/$PKG_KEEP file not found!"
 	fi
 
 	# add all packages in manifest
@@ -387,6 +390,8 @@ setup_software () {
 		if [ -n "$to_add" ]; then
 			pkgs_install $to_add
 		fi
+	elif [ -n "$PKG_ADD" -a ! -e "$INPUT_DIR/$PKG_ADD" ]; then
+		echo "Warning: $INPUT_DIR/$PKG_ADD file not found!"
 	fi
 
 	apt-get clean
