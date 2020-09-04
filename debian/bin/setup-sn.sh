@@ -28,6 +28,8 @@ SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
 PKG_DIST="buster"
 UPDATE_PKG_CACHE=""
 VERBOSE=""
+WITHOUT_SYSLOG=""
+WITHOUT_LOCALEPURGE=""
 
 LOG="$INPUT_DIR/setup-sn.log"
 ERR_LOG="$INPUT_DIR/setup-sn.err"
@@ -72,10 +74,12 @@ Arguments:
  -u <username>          - the app username to use; defaults to solar
  -V <pi user>           - the pi username to delete; defaults to pi
  -v                     - verbose mode; print out more verbose messages
+ -W                     - without syslog
+ -w                     - wihtout localepurge
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:v" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:vWw" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
@@ -100,6 +104,8 @@ while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:v" opt; do
 		u) APP_USER="${OPTARG}";;
 		V) PI_USER="${OPTARG}";;
 		v) VERBOSE='TRUE';;
+		W) WITHOUT_SYSLOG='TRUE';;
+		w) WITHOUT_LOCALEPURGE='TRUE';;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -139,7 +145,7 @@ pkgs_install () {
 				${apt_proxy} \
 				--no-install-recommends \
 				"$@" >>$LOG 2>>$ERR_LOG; then
-			echo "Error installing package $1"
+			echo "Error installing package(s) $@"
 			exit 1
 		fi
 		echo "OK"
@@ -283,6 +289,8 @@ setup_apt () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
+			pkg_install curl
+			pkg_install gnupg
 			curl -s "$SNF_PKG_REPO/KEY.gpg" |apt-key add -
 		fi
 	fi
@@ -360,9 +368,9 @@ setup_software_early () {
 }
 
 setup_software () {
-	pkg_install localepurge
+	[ -z "$WITHOUT_LOCALEPURGE" ] && pkg_install localepurge
 	pkg_remove rsyslog
-	pkg_install busybox-syslogd
+	[ -z "$WITHOUT_SYSLOG" ] && pkg_install busybox-syslogd
 
 	# remove all packages NOT in manifest or not to add later and NOT starting with linux- (kernel)
 	if [ -n "$PKG_KEEP" -a -e "$INPUT_DIR/$PKG_KEEP" ]; then

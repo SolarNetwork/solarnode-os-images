@@ -306,10 +306,10 @@ setup_chroot () {
 	disable_ld_preload
 	setup_mounts
 	if [ -L "$SRC_MOUNT/etc/resolv.conf" -o -e "$SRC_MOUNT/etc/resolv.conf" ]; then
-		mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"
-	else
-		echo "Error: unable to rename $SRC_MOUNT/etc/resolv.conf." 
-		exit 1
+		if ! mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"; then
+			echo "Error: unable to rename $SRC_MOUNT/etc/resolv.conf." 
+			exit 1
+		fi
 	fi
 	echo 'nameserver 1.1.1.1' >"$SRC_MOUNT/etc/resolv.conf"
 	SCRIPT_DIR=$(mktemp -d -t sn-XXXXX -p "$SRC_MOUNT/var/tmp")
@@ -345,12 +345,15 @@ execute_chroot () {
 		fi
 		binds="--bind=$binds"
 	fi
-	systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
-		--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
-		${binds} \
-		./customize \
-			${VERBOSE//TRUE/-v} \
-			${SCRIPT_ARGS}
+	if ! systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
+			--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
+			${binds} \
+			./customize \
+				${VERBOSE//TRUE/-v} \
+				${SCRIPT_ARGS}; then
+		echo 'Error running setup script in container!'
+		exit 1
+	fi
 }
 
 copy_bootloader () {
