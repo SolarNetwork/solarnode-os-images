@@ -133,7 +133,7 @@ copy_src_img () {
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating source image copy $SRC_IMG"
 	fi
-	if [ "${SRC_IMG##*.}" = "xz" ]; then
+	if [ "${IMG##*.}" = "xz" ]; then
 		if ! xzcat ${VERBOSE//TRUE/-v} "$IMG" >"$SRC_IMG"; then
 			echo "Error extracting $IMG to $SRC_IMG"
 			exit 1
