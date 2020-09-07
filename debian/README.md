@@ -15,6 +15,19 @@ create a new image file out of it.
 For example use, see the README files in the various device-specific directories under this one,
 such as the [Raspberry Pi](pi/#setup-script).
 
+## Requirements
+
+A Linux host system is required. This can be a virtual machine, as long as nested virtual machine
+support is enabled. A Debian-based system is recommended, which must be version 10 (Buster) or
+later.
+
+The following assumes you are using a Debian host. You need some packages installed to run the
+setup scripts:
+
+```sh
+sudo apt-get install git systemd-container qemu binfmt-support qemu-user-static
+```
+
 # Setup script
 
 The [bin/setup-sn.sh](bin/setup-sn.sh) script is the main tool for performing the steps of 
