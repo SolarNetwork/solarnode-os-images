@@ -61,10 +61,22 @@ Device     Boot Start     End Sectors  Size Id Type
 /dev/sdd1        8192 1949695 1941504  948M 83 Linux
 ```
 
+The 2GB images are partitioned like this:
+
+```
+Device     Boot  Start     End Sectors  Size Id Type
+/dev/sde1        40960  143359  102400   50M  c W95 FAT32 (LBA)
+/dev/sde2       143360 2717695 2574336  1.2G 83 Linux
+```
+
 The image is copied with a `dd` command like this:
 
 ```
+# 1GB
 dd if=/dev/sdd conv=sync,noerror bs=4k count=243712 of=solarnode-deb9-orangepi-zero-1GB.img
+
+# 2GB
+dd if=/dev/sde conv=sync,noerror bs=4k count=357632 of=solarnodeos-deb9-orangepi-zero-2GB.img
 ```
 
 The image is then compressed, and then a digest computed like this:
@@ -72,6 +84,42 @@ The image is then compressed, and then a digest computed like this:
 ```
 xz -c -9 solarnode-deb9-orangepi-zero-1GB.img >solarnode-deb9-orangepi-zero-1GB.img.xz
 sha256sum solarnode-deb9-orangepi-zero-1GB.img.xz >solarnode-deb9-orangepi-zero-1GB.img.xz.sha256
+```
+# Development
+
+The Armbian build process was used to turn Armbian into SolarNodeOS by following these steps:
+
+## Setup Armbian build for Vagrant
+
+Either check out directly or create a symbolic link to the build repository named `armbian-build`.
+
+Add the following to the `Main()` function:
+
+```
+if [ -e /tmp/overlay/sn-$BOARD/bin/setup-sn.sh ]; then
+	echo "SolarNode setup script discovered at /tmp/overlay/sn-$BOARD/bin/setup-sn.sh"
+	export LANG=C LC_ALL="en_US.UTF-8"
+	export DEBIAN_FRONTEND=noninteractive
+	/tmp/overlay/sn-$BOARD/bin/setup-sn.sh -a $BOARD -i /tmp/overlay/sn-$BOARD
+	rm -f /root/.not_logged_in_yet
+fi
+```
+
+Copy the contents of this directory to the `userpatches/overlay` directory as the appropriate
+directory named for the board being built:
+
+```sh
+rsync -avL bin conf armbian-build/userpatches/overlay/sn-orangepizero
+```
+
+## Execute build
+
+Bring up Vagrant and then run build:
+
+```sh
+$ cd armbian-build/config/templates
+$ vagrant reload
+$ vagrant ssh -c 'sudo BOARD=orangepizero armbian/userpatches/overlay/sn-orangepizero/bin/armbian-build.sh'
 ```
 
   [1]: https://www.orangepi.org/

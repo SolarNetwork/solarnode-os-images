@@ -14,6 +14,7 @@ DRY_RUN=""
 HOSTNAME="solarnode"
 PKG_KEEP="conf/packages-keep.txt"
 PKG_ADD="conf/packages-add.txt"
+SOURCES_LIST="conf/sources.list"
 PI_USER="pi"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
@@ -29,20 +30,19 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments>
 
-Setup script for a minimal SolarNode OS based on Raspbian.
+Setup script for a minimal SolarNode OS based on the OrangePi Debian image.
 
-Start with a clean Raspbian image, e.g. 2019-04-08-raspbian-stretch-lite.img and boot
-a Pi with the image. Once booted, copy this bin directory and the sibling conf directory to the
-pi, e.g.
+Start with a clean OrangePi image, e.g. OrangePi_zero_debian_stretch_server_linux5.3.5_v1.0.img
+and boot a Pi with the image. Once booted, copy this bin directory and the sibling conf
+directory to the Pi, e.g.
 
-  $ rsync -av bin conf pi@raspberrypi:/var/tmp/
+  $ rsync -av bin conf root@OrangePi:/var/tmp/
   
 Then on the Pi, execute this as the root user:
 
-  $ ssh pi@raspberrypi
-  $ sudo su -
+  $ ssh root@OrangePi
   $ cd /var/tmp
-  $ bin/setup-pi.sh
+  $ bin/setup-orangepi.sh
   
 For Debian 10 development, execute this variation:
 
@@ -66,7 +66,7 @@ Arguments:
  -r <root dev>          - the root device; defaults to /dev/mmcblk0p2
  -U <user pass>         - the app user password; defaults to solar
  -u <username>          - the app username to use; defaults to solar
- -V <pi user>           - the pi username to delete; defaults to pi
+ -V <pi user>           - the pi username to delete; defaults to orangepi
  -v                     - verbose mode; print out more verbose messages
 EOF
 }
@@ -161,7 +161,7 @@ setup_hostname () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
-			sudo hostnamectl set-hostname "$HOSTNAME" && echo "OK"
+			hostnamectl set-hostname "$HOSTNAME" && echo "OK"
 		fi
 	fi
 }
@@ -170,18 +170,24 @@ setup_dns () {
 	if grep -q "$HOSTNAME" /etc/hosts; then
 		echo "/etc/hosts contains $HOSTNAME already."
 	else
-		echo "Setting up $HOSTNAME /etc/hosts entry..."
-		sed "s/^127.0.0.1[[:space:]]*localhost/127.0.0.1 $HOSTNAME localhost/" /etc/hosts >/tmp/hosts.new
+		echo -n "Setting up $HOSTNAME /etc/hosts entry..."
+		sed "s/^127.0.1.1.*/127.0.1.1 $HOSTNAME/" /etc/hosts >/tmp/hosts.new
 		if diff -q /etc/hosts /tmp/hosts.new >/dev/null; then
 			# didn't change anything, try 127.0.1.0
-			sed "s/^127.0.1.1.*/127.0.1.1 $HOSTNAME/" /etc/hosts >/tmp/hosts.new
+			sed "s/^127.0.0.1[[:space:]]*localhost/127.0.0.1 $HOSTNAME localhost/" /etc/hosts >/tmp/hosts.new
 		fi
 		if diff -q /etc/hosts /tmp/hosts.new >/dev/null; then
 			# no change
 			rm -f /tmp/hosts.new
 		else
-			chmod 644 /tmp/hosts.new
-			sudo mv -f /tmp/hosts.new /etc/hosts
+			if [ -n "$DRY_RUN" ]; then
+				echo 'DRY RUN'
+			else
+				chmod 644 /tmp/hosts.new
+				mv -f /tmp/hosts.new /etc/hosts
+				echo 'nameserver 1.1.1.1' >>/etc/resolv.conf
+				echo 'OK'
+			fi
 		fi
 	fi
 }
@@ -196,8 +202,6 @@ setup_user () {
 		else
 			useradd -m -U -G dialout,sudo -s /bin/bash "$APP_USER" 2>>$ERR_LOG && echo "OK" || echo "ERROR"
 			echo "$APP_USER:$APP_USER_PASS" |chpasswd 2>>$ERR_LOG
-			echo "You need to log out, then back in as the $APP_USER user to continue."
-			exit 0
 		fi
 	fi
 	
@@ -207,7 +211,7 @@ setup_user () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
-			killall -u $PI_USER
+			killall -u pi
 			deluser --remove-home "$PI_USER" >/dev/null 2>>$ERR_LOG && echo "OK" || { 
 				echo "ERROR"
 				echo "You might need to log out, then back in as the $APP_USER user to continue."
@@ -231,6 +235,20 @@ setup_apt () {
 	fi
 	
 	local updated=""
+	if [ -e "$SOURCES_LIST" ]; then
+		if ! diff "$SOURCES_LIST" /etc/apt/sources.list >/dev/null; then
+			updated=1
+			echo -n "Replacing /etc/apt/sources.list..."
+			if [ -n "$DRY_RUN" ]; then
+				echo 'DRY RUN'
+			else
+				cp -f conf/sources.list /etc/apt/sources.list
+				echo 'OK'
+			fi
+		else
+			echo "/etc/apt/sources.list already configured."
+		fi
+	fi
 	if [ -e /etc/apt/sources.list.d/solarnetwork.list ]; then
 		echo 'SNF package repository already configured.'
 	else
@@ -257,16 +275,25 @@ setup_apt () {
 	fi
 }
 
+setup_tmux () {
+	pkg_install locales
+	pkg_install tmux
+	if [ -z "$TMUX" ]; then
+		if [ -z "$DRY_RUN" ]; then
+			echo 
+			echo 'Please ensure a UTF-8 locale is configured as the default, e.g. en_NZ.UTF-8...'
+			sleep 2
+			dpkg-reconfigure locales
+		fi
+		echo 'Please run this script from within a tmux session.'
+		exit 1
+	fi
+}
+
 setup_software () {
 	pkg_install localepurge
 	pkg_remove rsyslog
 	pkg_install busybox-syslogd
-	
-	# remove all development packages
-# 	dpkg-query --showformat='${Package}\n' --show |egrep -- '(^g\+\+|^gcc$|^gcc-4|^gcc-5|-dev$)' >/tmp/pkgs.txt
-# 	while IFS= read -r line; do
-# 		pkg_remove "$line"
-# 	done < /tmp/pkgs.txt
 	
 	# remove all packages NOT in manifest or not to add later
 	if [ -n "$PKG_KEEP" -a -e "$PKG_KEEP" ]; then
@@ -337,12 +364,25 @@ setup_busybox_links () {
 	fi
 }
 
-setup_startup_screen () {
-	if grep -q "logo.nologo" /boot/cmdline.txt; then
-		echo "Raspberry logos on screen disabled in /boot/cmdline.txt already."
+setup_disable_root () {
+	echo -n "Disabling root password... "
+	if [ -n "$DRY_RUN" ]; then
+		echo 'DRY RUN'
 	else
-		echo "Disabling raspberry logos on screen in /boot/cmdline.txt..."
-		sed -i 's/$/ quiet logo.nologo/' /boot/cmdline.txt
+		passwd -d root
+		echo 'OK'
+	fi
+}
+
+setup_remove_dev_files () {
+	if [ -d /usr/local/include -a -n `ls -A /usr/local/include` ]; then
+		echo -n "Removing files from /usr/local/include... "
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			rm -rf /usr/local/include/*
+			echo 'OK'
+		fi
 	fi
 }
 
@@ -351,10 +391,12 @@ setup_hostname
 setup_dns
 setup_user
 setup_apt
+setup_tmux
 setup_software
 setup_time
 setup_expandfs
 setup_swap
 setup_busybox_links
-setup_startup_screen
+setup_disable_root
+setup_remove_dev_files
 check_err

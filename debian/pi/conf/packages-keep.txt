@@ -153,7 +153,6 @@ libraspberrypi-bin
 libraspberrypi0
 libreadline7
 librtmp1
-librxtx-java
 libsasl2-2
 libsasl2-modules
 libsasl2-modules-db

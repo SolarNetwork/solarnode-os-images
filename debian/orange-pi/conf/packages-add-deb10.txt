@@ -1,0 +1,15 @@
+libmodbus
+mbpoll
+openjdk-11-jre-headless
+unzip
+usbutils
+sn-nftables
+sn-osstat
+sn-rxtx
+sn-solarpkg
+sn-solarssh
+sn-system
+sn-wifi
+yasdishell
+solarnode-base
+solarnode-app-core

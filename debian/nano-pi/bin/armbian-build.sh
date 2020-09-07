@@ -1,0 +1,1 @@
+../../bin/armbian-build.sh

@@ -1,4 +1,11 @@
-# SolarNode Debian OS - Orange Pi
+# SolarNodeOS Debian 9 - Orange Pi Zero
+
+## 2020-06-01
+
+ * Initial image based on upstream Orange Pi Debian 9 image.
+
+
+# SolarNode Armbian OS - Orange Pi
 
 ## 2019-03-06
 
