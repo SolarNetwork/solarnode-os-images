@@ -98,7 +98,7 @@ Add the following to the `Main()` function:
 ```
 if [ -e /tmp/overlay/sn-$BOARD/bin/setup-sn.sh ]; then
 	echo "SolarNode setup script discovered at /tmp/overlay/sn-$BOARD/bin/setup-sn.sh"
-	export LANG=C LC_ALL="en_US.UTF-8"
+	export LANG=C LC_ALL="C"
 	export DEBIAN_FRONTEND=noninteractive
 	/tmp/overlay/sn-$BOARD/bin/setup-sn.sh -a $BOARD -i /tmp/overlay/sn-$BOARD
 	rm -f /root/.not_logged_in_yet
@@ -119,7 +119,7 @@ Bring up Vagrant and then run build:
 ```sh
 $ cd armbian-build/config/templates
 $ vagrant reload
-$ vagrant ssh -c 'sudo BOARD=orangepizero armbian/userpatches/overlay/sn-orangepizero/bin/armbian-build.sh'
+$ vagrant ssh -c 'sudo BOARD=orangepizero armbian/userpatches/overlay/sn-orangepizero/bin/armbian-build.sh -z'
 ```
 
   [1]: https://www.orangepi.org/

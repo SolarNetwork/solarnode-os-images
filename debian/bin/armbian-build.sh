@@ -5,6 +5,8 @@ BOOT_DEV_LABEL="${BOOT_DEV_LABEL:-SOLARBOOT}"
 ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
 
 BUILD_HOME="armbian"
+COMPRESS_DEST_IMAGE=""
+COMPRESS_DEST_OPTS="-8 -T 0"
 IMAGE_SIZE="952"
 SKIP_BUILD=""
 SKIP_DATE_CHECK=""
@@ -20,15 +22,19 @@ Arguments:
  -D                     - skip image date check
  -h <armbian build dir> - path to the Armbian build directory; defaults to armbian-build
  -s <mb>                - size of disk image, in MB; defaults to 952
+ -Z <options>           - xz options to use on final image; defaults to '-8 -T 0'
+ -z                     - compress final image with xz
 EOF
 }
 
-while getopts ":BDh:s:" opt; do
+while getopts ":BDh:s:Z:z" opt; do
 	case $opt in
 		B) SKIP_BUILD='TRUE';;
 		D) SKIP_DATE_CHECK='TRUE';;
 		h) BUILD_HOME="${OPTARG}";;
 		s) IMAGE_SIZE="${OPTARG}";;
+		Z) COMPRESS_DEST_OPTS="${OPTARG}";;
+		z) COMPRESS_DEST_IMAGE="TRUE";;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -116,6 +122,25 @@ setup_root_dev () {
 	fi
 }
 
+finish_output () {
+	local out_img="$1"
+	out_path=$(dirname $(readlink -f "$out_img"))
+	out_name=$(basename "${out_img%%.*}")
+	# cd into out_path so checksums don't contain paths
+	pushd "$out_path" >/dev/null
+	echo "Checksumming image as ${out_path}/${out_name}.img.sha256..."
+	sha256sum $(basename $out_img) >"${out_name}.img.sha256"
+	
+	if [ -n "$COMPRESS_DEST_IMAGE" ]; then
+		echo "Compressing image as ${out_path}/${out_name}.img.xz..."
+		xz -cv ${COMPRESS_DEST_OPTS} "${out_name}.img" >"${out_name}.img.xz"
+
+		echo "Checksumming compressed image as ${out_name}.img.xz.sha256..."
+		sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
+	fi
+	popd >/dev/null
+}
+
 DATE="$(date '+%Y%m%d')"
 if [ -z "$SKIP_BUILD" ]; then
 	DATE_MARKER=$(mktemp -t armbian-build-XXXXX)
@@ -193,6 +218,7 @@ rmdir "$MOUNT_BOOT"
 rmdir "$MOUNT_ROOT"
 losetup -d $LOOPDEV
 
-OUTIMG="${BUILD_HOME}/output/images/solarnodeos-armbian-$BOARD-$DATE.img"
+OUTIMG="${BUILD_HOME}/output/images/solarnodeos-deb10-$BOARD-1GB-$DATE.img"
 mv "$TMPIMG" "$OUTIMG"
 echo "Image saved to $OUTIMG"
+finish_output "$OUTIMG"

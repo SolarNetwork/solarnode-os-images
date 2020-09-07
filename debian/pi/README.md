@@ -145,19 +145,21 @@ These steps, and some additional cleanup tasks, are automated via a [prep-disk.s
 
 # Setup script
 
-The [bin/setup-sn-pi.sh](bin/setup-sn-pi.sh) script performs most of the work for customizing a
-Raspbian-based OS image into SolarNodeOS. This can be executed via the [customize](../bin/customize.sh)
-script, something like this:
+The [../bin/setup-sn.sh](../bin/setup-sn.sh) script performs most of the work for customizing a
+Raspbian-based OS image into SolarNodeOS. This can be executed via the
+[customize](../bin/customize.sh) script, something like the following, which takes the
+`2020-08-20-raspios-buster-armhf-lite.img` upstream image and produces
+`solarnodeos-deb10-pi-2GB-20200907.img` (the date will be based on the current date):
 
 ```sh
 sudo ../bin/customize.sh -v -z \
 	-E 500 \
 	-P boot -p rootfs \
-	-a '-o 172.16.159.196:3142' \                        # e.g. if running apt-cacher-ng
-	-o solarnodeos-pi-2GB-$(date '+%Y%m%d').img \
+	-a '-a raspberrypi -o 172.16.159.196:3142' \
+	-o solarnodeos-deb10-pi-2GB-$(date '+%Y%m%d').img \
 	/var/tmp/2020-08-20-raspios-buster-armhf-lite.img \
-	bin/setup-sn-pi.sh \
-	.:/tmp/overlay
+	../bin/setup-sn.sh \
+	$PWD:/tmp/overlay 
 ```
 
 
