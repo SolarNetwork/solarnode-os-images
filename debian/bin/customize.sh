@@ -23,7 +23,9 @@ DEST_MNT_OPTS[ext4]="defaults,noatim"
 DEST_MNT_OPTS[vfat]="defaults"
 
 SRC_BOOT_LABEL="SOLARBOOT"
+SRC_BOOT_PARTNUM=""
 SRC_ROOT_LABEL="SOLARNODE"
+SRC_ROOT_PARTNUM=""
 DEST_ROOT_FSTYPE=""
 BOOT_DEV_LABEL="${BOOT_DEV_LABEL:-SOLARBOOT}"
 ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
@@ -40,16 +42,18 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments> src script [bind-mounts]
 
- -a <args>       - extra argumnets to pass to the script
- -E <size MB>    - shrink the SOLARNODE partition by this amount, in MB
- -e <size MB>    - expand the SOLARNODE partition by this amount, in MB
- -P <boot label> - the source image boot partition label; defaults to SOLARBOOT
- -p <root label> - the source image root partition label; defaults to SOLARNODE
- -o <out name>   - the output name for the final image
- -r <fstype>     - force a specific root filesystem type in the destination image
- -v              - increase verbosity of tasks
- -Z <options>    - xz options to use on final image; defaults to '-8 -T 0'
- -z              - compress final image with xz
+ -a <args>        - extra argumnets to pass to the script
+ -E <size MB>     - shrink the SOLARNODE partition by this amount, in MB
+ -e <size MB>     - expand the SOLARNODE partition by this amount, in MB
+ -N <boot part #> - the source image boot partition number, instead of using label
+ -n <root part #> - the source image root partition number, instead of using label
+ -P <boot label>  - the source image boot partition label; defaults to SOLARBOOT
+ -p <root label>  - the source image root partition label; defaults to SOLARNODE
+ -o <out name>    - the output name for the final image
+ -r <fstype>      - force a specific root filesystem type in the destination image
+ -v               - increase verbosity of tasks
+ -Z <options>     - xz options to use on final image; defaults to '-8 -T 0'
+ -z               - compress final image with xz
 
 The bind-mounts argument must adhere to the systemd-nspawn --bind-ro syntax,
 that is something like 'src:mount'. Multiple mounts should be separarted by
@@ -66,12 +70,14 @@ To expand the root filesystem by 500 MB:
 EOF
 }
 
-while getopts ":a:E:e:o:P:p:r:vZ:z" opt; do
+while getopts ":a:E:e:o:N:n:P:p:r:vZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
 		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		o) DEST_PATH="${OPTARG}";;
+		N) SRC_BOOT_PARTNUM="${OPTARG}";;
+		n) SRC_ROOT_PARTNUM="${OPTARG}";;
 		P) SRC_BOOT_LABEL="${OPTARG}";;
 		p) SRC_ROOT_LABEL="${OPTARG}";;
 		r) DEST_ROOT_FSTYPE="${OPTARG}";;
@@ -127,7 +133,7 @@ copy_src_img () {
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating source image copy $SRC_IMG"
 	fi
-	if [ "${SRC_IMG##*.}" = "xz" ]; then
+	if [ "${IMG##*.}" = "xz" ]; then
 		if ! xzcat ${VERBOSE//TRUE/-v} "$IMG" >"$SRC_IMG"; then
 			echo "Error extracting $IMG to $SRC_IMG"
 			exit 1
@@ -164,7 +170,11 @@ setup_src_loopdev () {
 	# seems system needs a little rest before labels are available in lsblk?
 	sleep 1
 
-	SOLARBOOT_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_BOOT_LABEL |cut -d' ' -f 1)
+	if [ -n "$SRC_BOOT_PARTNUM" ]; then
+		SOLARBOOT_PART=$(lsblk -npo kname $LOOPDEV |tail +$((1+$SRC_BOOT_PARTNUM)) |head -n 1)
+	else
+		SOLARBOOT_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_BOOT_LABEL |cut -d' ' -f 1)
+	fi
 	if [ -z "$SOLARBOOT_PART" ]; then
 		echo "Error: $SRC_BOOT_LABEL partition not discovered"
 		exit 1
@@ -172,7 +182,11 @@ setup_src_loopdev () {
 		echo "Discovered source $SRC_BOOT_LABEL partition ${SOLARBOOT_PART}."
 	fi
 
-	SOLARNODE_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_ROOT_LABEL |cut -d' ' -f 1)
+	if [ -n "$SRC_BOOT_PARTNUM" ]; then
+		SOLARNODE_PART=$(lsblk -npo kname $LOOPDEV |tail +$((1+$SRC_ROOT_PARTNUM)) |head -n 1)
+	else
+		SOLARNODE_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_ROOT_LABEL |cut -d' ' -f 1)
+	fi
 	if [ -z "$SOLARNODE_PART" ]; then
 		echo "Error: $SRC_ROOT_LABEL partition not discovered"
 		exit 1
@@ -292,10 +306,10 @@ setup_chroot () {
 	disable_ld_preload
 	setup_mounts
 	if [ -L "$SRC_MOUNT/etc/resolv.conf" -o -e "$SRC_MOUNT/etc/resolv.conf" ]; then
-		mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"
-	else
-		echo "Error: unable to rename $SRC_MOUNT/etc/resolv.conf." 
-		exit 1
+		if ! mv "$SRC_MOUNT/etc/resolv.conf" "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak"; then
+			echo "Error: unable to rename $SRC_MOUNT/etc/resolv.conf." 
+			exit 1
+		fi
 	fi
 	echo 'nameserver 1.1.1.1' >"$SRC_MOUNT/etc/resolv.conf"
 	SCRIPT_DIR=$(mktemp -d -t sn-XXXXX -p "$SRC_MOUNT/var/tmp")
@@ -326,14 +340,21 @@ clean_chroot () {
 execute_chroot () {
 	local binds="$1"
 	if [ -n "$binds" ]; then
-		binds="--bind-ro=$binds"
+		if [ -n "$VERBOSE" ]; then
+			echo "Binding container dir $binds"
+		fi
+		binds="--bind=$binds"
 	fi
-	systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
-		--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
-		${binds} \
-		./customize \
-			${VERBOSE//TRUE/-v} \
-			${SCRIPT_ARGS}
+	if ! systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
+			--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
+			${binds} \
+			./customize \
+				${VERBOSE//TRUE/-v} \
+				${SCRIPT_ARGS}; then
+		echo "!!!"
+		echo "!!! Error running setup script in container!"
+		echo "!!!"
+	fi
 }
 
 copy_bootloader () {
@@ -427,7 +448,7 @@ setup_boot_cmdline () {
 		fi
 		if ! grep ' fsck.repair=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
 			echo -n "Adding fsck.repair=yes to $tmp_mount/cmdline.txt... "
-			echo ' fsck.repair=yes' >> $tmp_mount/cmdline.txt \
+			sed -i '1s/$/ fsck.repair/' $tmp_mount/cmdline.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi

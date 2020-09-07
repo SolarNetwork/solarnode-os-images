@@ -28,9 +28,11 @@ SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
 PKG_DIST="buster"
 UPDATE_PKG_CACHE=""
 VERBOSE=""
+WITHOUT_SYSLOG=""
+WITHOUT_LOCALEPURGE=""
 
-LOG="/var/tmp/setup-sn.log"
-ERR_LOG="/var/tmp/setup-sn.err"
+LOG="$INPUT_DIR/setup-sn.log"
+ERR_LOG="$INPUT_DIR/setup-sn.err"
 
 do_help () {
 	cat 1>&2 <<EOF
@@ -72,10 +74,12 @@ Arguments:
  -u <username>          - the app username to use; defaults to solar
  -V <pi user>           - the pi username to delete; defaults to pi
  -v                     - verbose mode; print out more verbose messages
+ -W                     - without syslog
+ -w                     - wihtout localepurge
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:v" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:vWw" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
@@ -100,6 +104,8 @@ while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:v" opt; do
 		u) APP_USER="${OPTARG}";;
 		V) PI_USER="${OPTARG}";;
 		v) VERBOSE='TRUE';;
+		W) WITHOUT_SYSLOG='TRUE';;
+		w) WITHOUT_LOCALEPURGE='TRUE';;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -112,7 +118,8 @@ shift $(($OPTIND - 1))
 cat /dev/null >$ERR_LOG
 cat /dev/null >$LOG
 
-export LANG=C LC_ALL="en_US.UTF-8"
+export LANG=C
+export LC_ALL=C
 export DEBIAN_FRONTEND=noninteractive
 
 apt_proxy=""
@@ -137,8 +144,8 @@ pkgs_install () {
 				-o Dpkg::Options::="--force-confnew" \
 				${apt_proxy} \
 				--no-install-recommends \
-				"$@" 2>/dev/null; then
-			echo "Error installing package $1"
+				"$@" >>$LOG 2>>$ERR_LOG; then
+			echo "Error installing package(s) $@"
 			exit 1
 		fi
 		echo "OK"
@@ -159,7 +166,7 @@ pkgs_remove () {
 	if [ -n "$DRY_RUN" ]; then
 		echo "DRY RUN"
 	else
-		DEBIAN_FRONTEND=noninteractive apt-get -qy remove --purge $@
+		apt-get -qy remove --purge $@ >>$LOG 2>>$ERR_LOG
 		echo "OK"
 	fi
 }
@@ -175,9 +182,9 @@ pkg_remove () {
 
 # remove package if installed
 pkg_autoremove () {
-		if [ -z "$DRY_RUN" ]; then
-			DEBIAN_FRONTEND=noninteractive apt-get -qy autoremove --purge $1
-		fi
+	if [ -z "$DRY_RUN" ]; then
+		apt-get -qy autoremove --purge $1 >>$LOG 2>>$ERR_LOG
+	fi
 }
 
 setup_hostname () {
@@ -198,7 +205,11 @@ setup_dns () {
 		echo "/etc/hosts contains $HOSTNAME already."
 	else
 		echo -n "Replacing $BOARD with $HOSTNAME in /etc/hosts... "
-		sed -i "s/$BOARD/$HOSTNAME/" /etc/hosts && echo "OK" || echo "ERROR"
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			sed -i "s/$BOARD/$HOSTNAME/" /etc/hosts 2>>$ERR_LOG && echo "OK" || echo "ERROR"
+		fi
 	fi
 }
 
@@ -246,7 +257,7 @@ setup_user () {
 			if [ -n "$DRY_RUN" ]; then
 				echo "DRY RUN"
 			else
-				passwd -l root >/dev/null && echo "OK" || echo "ERROR"
+				passwd -l root >/dev/null 2>>$ERR_LOG && echo "OK" || echo "ERROR"
 			fi
 			;;
 	esac
@@ -278,6 +289,8 @@ setup_apt () {
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
+			pkg_install curl
+			pkg_install gnupg
 			curl -s "$SNF_PKG_REPO/KEY.gpg" |apt-key add -
 		fi
 	fi
@@ -326,13 +339,18 @@ setup_systemd () {
 	if grep -q '^SystemMaxUse=10M' /etc/systemd/journald.conf >/dev/null; then
 		true
 	else
-		echo 'Configuring SystemMaxUse in /etc/systemd/journald.conf; will be active on reboot.'
-		if grep -q 'SystemMaxUse' /etc/systemd/journald.conf; then
-			# update
-			sed -i -e '/SystemMaxUse/c SystemMaxUse=10M' /etc/systemd/journald.conf || true
+		echo -n 'Configuring SystemMaxUse in /etc/systemd/journald.conf; will be active on reboot... '
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
 		else
-			# add in
-			echo 'SystemMaxUse=10M' >>/etc/systemd/journald.conf
+			if grep -q 'SystemMaxUse' /etc/systemd/journald.conf; then
+				# update
+				sed -i -e '/SystemMaxUse/c SystemMaxUse=10M' /etc/systemd/journald.conf || true
+			else
+				# add in
+				echo 'SystemMaxUse=10M' >>/etc/systemd/journald.conf
+			fi
+			echo 'OK'
 		fi
 	fi
 }
@@ -350,9 +368,9 @@ setup_software_early () {
 }
 
 setup_software () {
-	pkg_install localepurge
+	[ -z "$WITHOUT_LOCALEPURGE" ] && pkg_install localepurge
 	pkg_remove rsyslog
-	pkg_install busybox-syslogd
+	[ -z "$WITHOUT_SYSLOG" ] && pkg_install busybox-syslogd
 
 	# remove all packages NOT in manifest or not to add later and NOT starting with linux- (kernel)
 	if [ -n "$PKG_KEEP" -a -e "$INPUT_DIR/$PKG_KEEP" ]; then
@@ -373,6 +391,8 @@ setup_software () {
 		if [ -n "$to_remove" ]; then
 			pkgs_remove $to_remove
 		fi
+	elif [ -n "$PKG_KEEP" -a ! -e "$INPUT_DIR/$PKG_KEEP" ]; then
+		echo "Warning: $INPUT_DIR/$PKG_KEEP file not found!"
 	fi
 
 	# add all packages in manifest
@@ -387,6 +407,8 @@ setup_software () {
 		if [ -n "$to_add" ]; then
 			pkgs_install $to_add
 		fi
+	elif [ -n "$PKG_ADD" -a ! -e "$INPUT_DIR/$PKG_ADD" ]; then
+		echo "Warning: $INPUT_DIR/$PKG_ADD file not found!"
 	fi
 
 	apt-get clean
@@ -407,11 +429,19 @@ setup_software_late () {
 		echo "Removing packages automatically installed but no longer needed."
 	fi
 	pkg_autoremove
-	apt-get clean
+	if [ -z "$DRY_RUN" ]; then
+		apt-get clean
+	fi
 }
 
 setup_time () {
-	timedatectl set-ntp true
+	echo -n 'Enabling NTP... '
+	if [ -n "$DRY_RUN" ]; then
+		echo 'DRY RUN'
+	else
+		timedatectl set-ntp true >>$LOG 2>>$ERR_LOG
+		echo 'OK'
+	fi
 }
 
 setup_expandfs () {
@@ -499,21 +529,35 @@ setup_issue () {
 	fi
 }
 
-setup_boot_cmdline () {
+append_boot_cmdline () {
 	if [ -e /boot/cmdline.txt ]; then
-		if grep -q "logo.nologo" /boot/cmdline.txt; then
-			echo "Raspberry logos on screen disabled in /boot/cmdline.txt already."
+		if grep -q "$1" /boot/cmdline.txt; then
+			echo "$1 configured in /boot/cmdline.txt already."
 		else
-			echo -n "Disabling raspberry logos on screen in /boot/cmdline.txt... "
-			sed -i 's/$/ quiet logo.nologo/' /boot/cmdline.txt && echo "OK" || echo "ERROR"
+			echo -n "Adding $1 to /boot/cmdline.txt... "
+			if [ -n "$DRY_RUN" ]; then
+				echo 'DRY RUN'
+			else
+				sed -i '1s/$/ '"$1"'/' /boot/cmdline.txt && echo "OK" || echo "ERROR"
+			fi
 		fi
 	fi
+}
+	
+
+setup_boot_cmdline () {
+	append_boot_cmdline 'logo.nologo'
+	append_boot_cmdline 'quiet'
 }
 
 setup_ssh () {
 	if ! systemctl is-active ssh >/dev/null; then
 		echo -n "Enabling ssh... "
-		systemctl enable ssh && echo 'OK' || echo 'ERROR'
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			systemctl enable ssh && echo 'OK' || echo 'ERROR'
+		fi
 	fi
 }
 
@@ -534,7 +578,7 @@ setup_swap
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_busybox_links
 fi
-setup motd
+setup_motd
 setup_boot_cmdline
 setup_issue
 if [ -z "$SKIP_SOFTWARE" ]; then
