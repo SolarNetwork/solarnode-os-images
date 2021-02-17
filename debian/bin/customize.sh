@@ -495,6 +495,8 @@ copy_img () {
 	fi
 	losetup -d "$out_loopdev"
 
+	close_src_loopdev
+	
 	if [ -n "$VERBOSE" ]; then
 	       echo "Customized image complete: $out_img"
 	fi
@@ -532,7 +534,6 @@ setup_chroot
 execute_chroot "$BIND_MOUNTS"
 clean_chroot
 copy_img
-close_src_loopdev
 clean_src_img
 if [ -n "$DEST_PATH" ]; then
 	echo "Customized image saved to $DEST_PATH"

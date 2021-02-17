@@ -31,9 +31,6 @@ VERBOSE=""
 WITHOUT_SYSLOG=""
 WITHOUT_LOCALEPURGE=""
 
-LOG="$INPUT_DIR/setup-sn.log"
-ERR_LOG="$INPUT_DIR/setup-sn.err"
-
 do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments>
@@ -56,6 +53,8 @@ Arguments:
                           defaults to conf/setup-packages-add.txt
  -k <package list file> - path to list of packages to keep;
                           defaults to conf/setup-packages-keep.txt
+ -L <err log path>      - path to error log; defaults to $INPUT_DIR/setup-sn.err
+ -l <log path>          - path to error log; defaults to $INPUT_DIR/setup-sn.log
  -N <name>              - release name; defaults to 'SolarNodeOS 10'
  -n                     - dry run; do not make any actual changes
  -o <proxy>             - host:port of Apt HTTP proxy to use
@@ -79,7 +78,7 @@ Arguments:
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:vWw" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:L:l:N:no:Pp:q:R:r:SU:u:V:vWw" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
@@ -91,6 +90,8 @@ while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:vWw" opt; do
 		i) INPUT_DIR="${OPTARG}";;
 		K) PKG_ADD="${OPTARG}";;
 		k) PKG_KEEP="${OPTARG}";;
+		L) ERR_LOG="${OPTARG}";;
+		l) LOG="${OPTARG}";;
 		N) RELEASE_NAME="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
 		o) APT_PROXY="${OPTARG}";;
@@ -113,6 +114,13 @@ while getopts ":a:B:b:e:Eh:i:K:k:N:no:Pp:q:R:r:SU:u:V:vWw" opt; do
 	esac
 done
 shift $(($OPTIND - 1))
+
+if [ -z "$LOG" ]; then
+	LOG="$INPUT_DIR/setup-sn.log"
+fi
+if [ -z "$ERR_LOG" ]; then
+	ERR_LOG="$INPUT_DIR/setup-sn.err"
+fi
 
 # clear error log
 cat /dev/null >$ERR_LOG
