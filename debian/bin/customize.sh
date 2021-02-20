@@ -33,6 +33,7 @@ COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0"
 EXPAND_SOLARNODE_FS=""
 SHRINK_SOLARNODE_FS=""
+INTERACTIVE_MODE=""
 DEST_PATH=""
 SCRIPT_ARGS=""
 SRC_IMG=""
@@ -45,6 +46,7 @@ Usage: $0 <arguments> src script [bind-mounts]
  -a <args>        - extra argumnets to pass to the script
  -E <size MB>     - shrink the SOLARNODE partition by this amount, in MB
  -e <size MB>     - expand the SOLARNODE partition by this amount, in MB
+ -i               - interactive mode; run without script
  -N <boot part #> - the source image boot partition number, instead of using label
  -n <root part #> - the source image root partition number, instead of using label
  -P <boot label>  - the source image boot partition label; defaults to SOLARBOOT
@@ -67,14 +69,19 @@ To expand the root filesystem by 500 MB:
 
   ./customize.sh -e 500 solarnodeos-20200820.img my-cust.sh
 
+To interactively customize the image (my-cust.sh is not run, but copied into image):
+
+  ./customize.sh -i solarnodeos-20200820.img my-cust.sh
+
 EOF
 }
 
-while getopts ":a:E:e:o:N:n:P:p:r:vZ:z" opt; do
+while getopts ":a:E:e:io:N:n:P:p:r:vZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
 		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
+		i) INTERACTIVE_MODE="TRUE";;
 		o) DEST_PATH="${OPTARG}";;
 		N) SRC_BOOT_PARTNUM="${OPTARG}";;
 		n) SRC_ROOT_PARTNUM="${OPTARG}";;
@@ -345,7 +352,15 @@ execute_chroot () {
 		fi
 		binds="--bind=$binds"
 	fi
-	if ! systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
+	if [ -n "$INTERACTIVE_MODE" ]; then
+		if ! systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
+			--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
+			${binds}; then
+			echo "!!!"
+			echo "!!! Error with interactive setup in container!"
+			echo "!!!"
+		fi
+	elif ! systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
 			--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
 			${binds} \
 			./customize \
