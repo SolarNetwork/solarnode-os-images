@@ -358,6 +358,7 @@ execute_chroot () {
 		if ! systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
 			--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
 			${binds}; then
+			ERR="Error running setup script in container."
 			echo "!!!"
 			echo "!!! Error with interactive setup in container!"
 			echo "!!!"
@@ -555,6 +556,6 @@ if [ -z "$ERR" ]; then
 	copy_img
 fi
 clean_src_img
-if [ -z "$ERR" && -n "$DEST_PATH" ]; then
+if [ -z "$ERR" -a -n "$DEST_PATH" ]; then
 	echo "Customized image saved to $DEST_PATH"
 fi
