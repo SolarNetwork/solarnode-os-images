@@ -38,6 +38,8 @@ SCRIPT_ARGS=""
 SRC_IMG=""
 VERBOSE=""
 
+ERR=""
+
 do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments> src script [bind-mounts]
@@ -351,6 +353,7 @@ execute_chroot () {
 			./customize \
 				${VERBOSE//TRUE/-v} \
 				${SCRIPT_ARGS}; then
+		ERR="Error running setup script in container."
 		echo "!!!"
 		echo "!!! Error running setup script in container!"
 		echo "!!!"
@@ -533,8 +536,10 @@ setup_src_loopdev
 setup_chroot
 execute_chroot "$BIND_MOUNTS"
 clean_chroot
-copy_img
+if [ -z "$ERR" ]; then
+	copy_img
+fi
 clean_src_img
-if [ -n "$DEST_PATH" ]; then
+if [ -z "$ERR" && -n "$DEST_PATH" ]; then
 	echo "Customized image saved to $DEST_PATH"
 fi
