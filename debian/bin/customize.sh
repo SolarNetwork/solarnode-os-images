@@ -107,6 +107,16 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
+if ! command -v bc; then
+	echo 'Error: bc is not available. Perhaps `apt install bc`?'
+	exit 1
+fi
+
+if ! command -v sfdisk; then
+	echo 'Error: sfdisk is not available. Perhaps `apt install util-linux`?'
+	exit 1
+fi
+
 IMG="$1"
 if [ -z "$IMG" ]; then
 	echo 'Must specify source image as argument.'
