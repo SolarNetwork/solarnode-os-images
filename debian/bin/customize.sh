@@ -292,27 +292,28 @@ enable_ld_preload () {
 }
 
 setup_mounts () {
-	# be sure to work with both UUID= and PARTUUID= forms
-	if grep 'UUID=[^ ]* */boot ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	# be sure to work with UUID= and PARTUUID= and LABEL= forms; also, work with /boot and /boot/firmware
+	if grep 'UUID=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
-		sed -i 's/^.*UUID=[^ ]* *\/boot /LABEL='"$BOOT_DEV_LABEL"' \/boot /' $SRC_MOUNT/etc/fstab \
+		sed -i 's/^.*UUID=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
+	elif grep 'LABEL=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		if ! grep 'LABEL='"$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+			echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
+			sed -i 's/^.*LABEL=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
+				&& echo "OK" || echo "ERROR"
+		fi
 	fi
 	if grep 'UUID=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
 		sed -i 's/^.*UUID=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
-	fi
-	if [ -n "$DEST_ROOT_FSTYPE" ]; then
-		# make sure fstab has changed file system options
-		echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to $DEST_ROOT_FSTYPE... "
-		sed -i 's/\/ *'"$FSTYPE_SOLARNODE"' *.*\([0-9] *[0-9]\)/\/ '"$DEST_ROOT_FSTYPE ${DEST_MNT_OPTS[$DEST_ROOT_FSTYPE]}"' \1/' $SRC_MOUNT/etc/fstab \
-			&& echo "OK" || echo "ERROR"
-	fi
-	if grep 'compress=lzo' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
-		echo -n "Changing compression in $SRC_MOUNT/etc/fstab from lzo to zstd... "
-		sed -i 's/compress=lzo/compress=zstd/' $SRC_MOUNT/etc/fstab \
-			&& echo "OK" || echo "ERROR"
+	elif grep 'LABEL=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		if ! grep 'LABEL='"$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+			echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
+			sed -i 's/^.*LABEL=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
+				&& echo "OK" || echo "ERROR"
+		fi
 	fi
 	if ! grep '^tmpfs /run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Adding /run mount in $SRC_MOUNT/etc/fstab with explicit size... "
