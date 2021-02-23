@@ -554,6 +554,8 @@ execute_chroot "$BIND_MOUNTS"
 clean_chroot
 if [ -z "$ERR" ]; then
 	copy_img
+else
+	close_src_loopdev
 fi
 clean_src_img
 if [ -z "$ERR" -a -n "$DEST_PATH" ]; then
