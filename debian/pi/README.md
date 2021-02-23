@@ -162,6 +162,19 @@ sudo ../bin/customize.sh -v -z \
 	$PWD:/tmp/overlay 
 ```
 
+Here's an example of creating a development-centric SolarNodeOS image out of a Debian `bullseye`
+Raspberry Pi testing source image:
+
+```sh
+sudo ../bin/customize.sh -v -z \
+	-N 1 -n 2 -e 200 \
+	-a '-a raspberrypi -N SolarNodeOS_11 -q bullseye -Q -k no.keep -p http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com -o 172.16.159.141:3142' \
+	-o /var/tmp/solarnodeos-deb11-pi-2GB-$(date '+%Y%m%d').img \
+	/var/tmp/20210210_raspi_3_bullseye.img \
+	../bin/setup-sn.sh \
+	$PWD:/tmp/overlay
+	```
+
 
 [1]: https://www.raspberrypi.org/
 [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Raspbian
