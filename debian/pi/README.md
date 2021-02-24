@@ -173,7 +173,32 @@ sudo ../bin/customize.sh -v -z \
 	/var/tmp/20210210_raspi_3_bullseye.img \
 	../bin/setup-sn.sh \
 	$PWD:/tmp/overlay
-	```
+```
+
+# Systemd container setup
+
+Customising the image further can be simplified by launching a systemd container on a mounted image.
+Once in the container, packages and such can be installed. To work with ARM architectures from a different host system, e.g.
+`x64`, be sure to have the `qemu binfmt-support` and `qemu-user-static` packages installed:
+
+```sh
+sudo apt install systemd-container qemu binfmt-support qemu-user-static
+```
+
+Then the image container can be started with `systemd-nspawn`.  In this example the image is an
+actual SD card, auto-mounted under `/media/matt`. The host system `/etc/resolv.conf` is bound to the
+container so DNS resolution functions.
+
+```sh
+sudo systemd-nspawn -M solarnode-cust --bind=/etc/resolv.conf \
+	-D /media/matt/SOLARNODE --bind=/media/matt/SOLARBOOT:/boot/firmware
+```
+
+When running `apt` you might like to use a caching proxy, for example:
+
+```sh
+apt -o Acquire::http::Proxy=http://172.16.159.141:3142 install -y sn-kiosk-wpe
+```
 
 
 [1]: https://www.raspberrypi.org/
