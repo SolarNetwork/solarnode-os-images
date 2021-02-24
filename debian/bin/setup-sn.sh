@@ -214,12 +214,26 @@ setup_hostname () {
 setup_dns () {
 	if grep -q "$HOSTNAME" /etc/hosts; then
 		echo "/etc/hosts contains $HOSTNAME already."
-	else
+	elif grep -q "$BOARD" /etc/hosts; then
 		echo -n "Replacing $BOARD with $HOSTNAME in /etc/hosts... "
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
 			sed -i "s/$BOARD/$HOSTNAME/" /etc/hosts 2>>$ERR_LOG && echo "OK" || echo "ERROR"
+		fi
+	elif grep -q '127.0.1.1' /etc/hosts; then
+		echo -n "Replacing 127.0.1.1 with $HOSTNAME in /etc/hosts... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			sed -i '/127.0.1.1/c 127.0.1.1\t'"$HOSTNAME" /etc/hosts 2>>$ERR_LOG && echo "OK" || echo "ERROR"
+		fi
+	else
+		echo -n "Adding $HOSTNAME to /etc/hosts... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			echo '127.0.1.1\t'"$HOSTNAME" >>/etc/hosts 2>>$ERR_LOG && echo "OK" || echo "ERROR"
 		fi
 	fi
 }
@@ -571,12 +585,12 @@ setup_boot_cmdline () {
 }
 
 setup_ssh () {
-	if ! systemctl is-active ssh >/dev/null; then
+	if ! systemctl is-active ssh >/dev/null 2>&1; then
 		echo -n "Enabling ssh... "
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			systemctl enable ssh && echo 'OK' || echo 'ERROR'
+			systemctl enable ssh >/dev/null && echo 'OK' || echo 'ERROR'
 		fi
 	fi
 }

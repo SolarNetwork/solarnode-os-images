@@ -28,6 +28,7 @@ SRC_ROOT_LABEL="SOLARNODE"
 SRC_ROOT_PARTNUM=""
 DEST_ROOT_FSTYPE=""
 BOOT_DEV_LABEL="${BOOT_DEV_LABEL:-SOLARBOOT}"
+BOOT_DEV_MOUNT="${BOOT_DEV_MOUNT:-/boot}"
 ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
 COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0"
@@ -53,6 +54,7 @@ Usage: $0 <arguments> src script [bind-mounts]
  -n <root part #> - the source image root partition number, instead of using label
  -P <boot label>  - the source image boot partition label; defaults to SOLARBOOT
  -p <root label>  - the source image root partition label; defaults to SOLARNODE
+ -M <boot mount>  - the boot partition mount directory; defaults to /boot
  -o <out name>    - the output name for the final image
  -r <fstype>      - force a specific root filesystem type in the destination image
  -v               - increase verbosity of tasks
@@ -78,13 +80,14 @@ To interactively customize the image (my-cust.sh is not run, but copied into ima
 EOF
 }
 
-while getopts ":a:E:e:io:N:n:P:p:r:vZ:z" opt; do
+while getopts ":a:E:e:io:M:N:n:P:p:r:vZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
 		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		i) INTERACTIVE_MODE="TRUE";;
 		o) DEST_PATH="${OPTARG}";;
+		M) BOOT_DEV_MOUNT="${OPTARG}";;
 		N) SRC_BOOT_PARTNUM="${OPTARG}";;
 		n) SRC_ROOT_PARTNUM="${OPTARG}";;
 		P) SRC_BOOT_LABEL="${OPTARG}";;
@@ -107,12 +110,12 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
-if ! command -v bc; then
+if ! command -v bc >/dev/null; then
 	echo 'Error: bc is not available. Perhaps `apt install bc`?'
 	exit 1
 fi
 
-if ! command -v sfdisk; then
+if ! command -v sfdisk >/dev/null; then
 	echo 'Error: sfdisk is not available. Perhaps `apt install util-linux`?'
 	exit 1
 fi
@@ -244,11 +247,17 @@ setup_src_loopdev () {
 		esac
 	fi
 
-	if ! mount "$SOLARBOOT_PART" "$SRC_MOUNT/boot"; then
-		echo "Error: unable to mount $SOLARBOOT_PART on $SRC_MOUNT/boot."
+	if [ ! -d "$SRC_MOUNT/$BOOT_DEV_MOUNT" ]; then
+		if ! mkdir -p "$SRC_MOUNT/$BOOT_DEV_MOUNT"; then
+			echo "Error: unable to create $SRC_MOUNT/$BOOT_DEV_MOUNT directory to mount $SOLARBOOT_PART."
+			exit 1
+		fi
+	fi
+	if ! mount "$SOLARBOOT_PART" "$SRC_MOUNT/$BOOT_DEV_MOUNT"; then
+		echo "Error: unable to mount $SOLARBOOT_PART on $SRC_MOUNT/$BOOT_DEV_MOUNT."
 		exit 1
 	elif [ -n "$VERBOSE" ]; then
-		echo "Mounted source $SRC_BOOT_LABEL filesystem on $SRC_MOUNT/boot."
+		echo "Mounted source $SRC_BOOT_LABEL filesystem on $SRC_MOUNT/$BOOT_DEV_MOUNT."
 	fi
 
 	FSTYPE_SOLARBOOT=$(findmnt -f -n -o FSTYPE "$SOLARBOOT_PART")
@@ -261,9 +270,9 @@ setup_src_loopdev () {
 
 close_src_loopdev () {
 	if [ -n "$VERBOSE" ]; then
-		echo "Unmounting source $SRC_BOOT_LABEL filesystem $SRC_MOUNT/boot."
+		echo "Unmounting source $SRC_BOOT_LABEL filesystem $SRC_MOUNT/$BOOT_DEV_MOUNT."
 	fi
-	umount "$SRC_MOUNT/boot"
+	umount "$SRC_MOUNT/$BOOT_DEV_MOUNT"
 	if [ -n "$VERBOSE" ]; then
 		echo "Unmounting source $SRC_ROOT_LABEL filesystem $SRC_MOUNT."
 	fi
@@ -515,7 +524,7 @@ copy_img () {
 	fi
 
 	copy_bootloader "$out_loopdev"
-	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/boot"
+	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/$BOOT_DEV_MOUNT"
 	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" "SOLARNODE" "$SRC_MOUNT"
 
 	setup_boot_cmdline "$out_loopdev${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$LAST_PARTUUID"
