@@ -498,11 +498,17 @@ setup_boot_cmdline () {
 copy_img () {
 	local size=$(wc -c <"$SRC_IMG")
 	local size_mb=$(echo "$size / 1024 / 1024" |bc)
+	local size_sector=""
+	local size_sector_in=""
 	if [ -n "$SHRINK_SOLARNODE_FS" ]; then
 		size_mb=$(echo "$size_mb - $SHRINK_SOLARNODE_FS" |bc)
 		if [ -n "$VERBOSE" ]; then
 			echo "Shrinking output image by $SHRINK_SOLARNODE_FS MB."
 		fi
+		local part_num=$(sfdisk -ql "$LOOPDEV" -o Device |tail +2 |awk '{print NR,$0}' \
+			|grep "${LOOPDEV}${SOLARNODE_PART##$LOOPDEV}" |cut -d' ' -f1)
+		size_sector_in=$(sfdisk -ql "$LOOPDEV" -o Sectors |tail +$((1 + $part_num)) |head -1)
+		size_sector=$(echo "$size_sector_in - $SHRINK_SOLARNODE_FS * 1024 * 1024 / 512" |bc)
 	fi
 	local out_img=$(mktemp -t img-XXXXX)
 	if [ -n "$VERBOSE" ]; then
@@ -518,7 +524,12 @@ copy_img () {
 	if [ -n "$VERBOSE" ]; then
 		echo "Opened output image loop device $out_loopdev."
 	fi
-	if ! sfdisk -q -d "$LOOPDEV" |sfdisk -q "$out_loopdev"; then
+	if [ -n "$size_sector" ]; then
+		if ! sfdisk -q -d "$LOOPDEV" |sed -e "s/size=.*$size_sector_in/size=$size_sector/" |sfdisk -q "$out_loopdev"; then
+			echo "Error copying partition table from $LOOPDEV to $outdev, shrunk from $size_sector_in to $size_sector sectors."
+			exit 1
+		fi
+	elif ! sfdisk -q -d "$LOOPDEV" |sfdisk -q "$out_loopdev"; then
 		echo "Error copying partition table from $LOOPDEV to $outdev."
 		exit 1
 	fi
