@@ -27,6 +27,7 @@ SKIP_SOFTWARE=""
 SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
 PKG_DIST="buster"
 UPDATE_PKG_CACHE=""
+UPDATE_PKG_CACHE_START=""
 VERBOSE=""
 WITHOUT_SYSLOG=""
 WITHOUT_LOCALEPURGE=""
@@ -65,6 +66,7 @@ Arguments:
                           https://debian.repo.stage.solarnetwork.org.nz;
                           or the staging repo can be accessed directly for development as
                           http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com
+ -Q                     - update apt repositories at start
  -q <pkg dist>          - the package distribution to use; defaults to 'stretch'
  -R <root dev label>    - the root device label; defaults to SOLARNODE
  -r <root dev>          - the root device; defaults to /dev/mmcblk0p2
@@ -78,7 +80,7 @@ Arguments:
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:L:l:N:no:Pp:q:R:r:SU:u:V:vWw" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:L:l:N:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
@@ -97,6 +99,7 @@ while getopts ":a:B:b:e:Eh:i:K:k:L:l:N:no:Pp:q:R:r:SU:u:V:vWw" opt; do
 		o) APT_PROXY="${OPTARG}";;
 		P) UPDATE_PKG_CACHE='TRUE';;
 		p) SNF_PKG_REPO="${OPTARG}";;
+		Q) UPDATE_PKG_CACHE_START='TRUE';;
 		q) PKG_DIST="${OPTARG}";;
 		R) ROOT_DEV_LABEL="${OPTARG}";;
 		r) ROOT_DEV="${OPTARG}";;
@@ -211,12 +214,26 @@ setup_hostname () {
 setup_dns () {
 	if grep -q "$HOSTNAME" /etc/hosts; then
 		echo "/etc/hosts contains $HOSTNAME already."
-	else
+	elif grep -q "$BOARD" /etc/hosts; then
 		echo -n "Replacing $BOARD with $HOSTNAME in /etc/hosts... "
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
 			sed -i "s/$BOARD/$HOSTNAME/" /etc/hosts 2>>$ERR_LOG && echo "OK" || echo "ERROR"
+		fi
+	elif grep -q '127.0.1.1' /etc/hosts; then
+		echo -n "Replacing 127.0.1.1 with $HOSTNAME in /etc/hosts... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			sed -i '/127.0.1.1/c 127.0.1.1\t'"$HOSTNAME" /etc/hosts 2>>$ERR_LOG && echo "OK" || echo "ERROR"
+		fi
+	else
+		echo -n "Adding $HOSTNAME to /etc/hosts... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			echo '127.0.1.1\t'"$HOSTNAME" >>/etc/hosts 2>>$ERR_LOG && echo "OK" || echo "ERROR"
 		fi
 	fi
 }
@@ -364,6 +381,15 @@ setup_systemd () {
 }
 
 setup_software_early () {
+	if [ -n "$UPDATE_PKG_CACHE_START" ]; then
+		echo -n "Updating package cache... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			apt-get -q update >>$LOG 2>>$ERR_LOG
+			echo "OK"
+		fi
+	fi
 	# add all packages in manifest
 	if [ -n "$PKG_ADD_EARLY" -a -e "$INPUT_DIR/$PKG_ADD_EARLY" ]; then
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
@@ -559,12 +585,12 @@ setup_boot_cmdline () {
 }
 
 setup_ssh () {
-	if ! systemctl is-active ssh >/dev/null; then
+	if ! systemctl is-active ssh >/dev/null 2>&1; then
 		echo -n "Enabling ssh... "
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			systemctl enable ssh && echo 'OK' || echo 'ERROR'
+			systemctl enable ssh >/dev/null && echo 'OK' || echo 'ERROR'
 		fi
 	fi
 }
