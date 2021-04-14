@@ -378,6 +378,18 @@ setup_systemd () {
 			echo 'OK'
 		fi
 	fi
+	if [ -d /var/log/journal ]; then
+		echo -n 'Removing persistent journald storage /var/log/journal...'
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			if rm -rf /var/log/journal >/dev/null 2>>$ERR_LOG; then
+				echo 'OK'
+			else
+				echo 'ERROR'
+			fi
+		fi
+	fi
 }
 
 setup_software_early () {
