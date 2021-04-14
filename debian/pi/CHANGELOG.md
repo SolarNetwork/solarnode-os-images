@@ -361,5 +361,5 @@ These images have been created without native Debian packages.
  * Add configuration to limit journald log to 10M
  * Add configuration systemd to not generate core dumps
 
-[solarnode-app-core-log]: https://github.com/SolarNetwork/solarnetwork-build/blob/master/solarnode-deploy/generic/CHANGELOG.md
-[solarnode-base-log]: https://github.com/SolarNetwork/solarnetwork-build/blob/master/solarnode-deploy/equinox/CHANGELOG.md
+[solarnode-app-core-log]: https://github.com/SolarNetwork/solarnode-os-packages/blob/master/solarnode-app-core/debian/CHANGELOG.md
+[solarnode-base-log]: https://github.com/SolarNetwork/solarnode-os-packages/blob/master/solarnode-base/debian/CHANGELOG.md
