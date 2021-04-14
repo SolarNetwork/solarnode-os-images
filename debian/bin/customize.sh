@@ -7,7 +7,9 @@
 #
 #  apt install systemd-container qemu binfmt-support qemu-user-static
 #
-# This script relies on tools available in the coreutils package.
+# This script relies on tools available in the bc, coreutils, and rsync packages, e.g.
+#
+#  apt install bc rsync
 
 declare -A FS_OPTS
 FS_OPTS[btrfs]="-q -m dup"
