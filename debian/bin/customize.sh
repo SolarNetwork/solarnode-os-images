@@ -361,6 +361,68 @@ setup_chroot () {
 	chmod ugo+x "$SCRIPT_DIR/customize"
 }
 
+clean_chroot_fluff () {
+	if [ -n "$VERBOSE" ]; then
+		echo "Finding archive logs to delete..."
+		find "$SRC_MOUNT/var/log" -type f \( -name '*.gz' -o -name '*.1' \) -print
+	fi
+	find "$SRC_MOUNT/var/log" -type f \( -name '*.gz' -o -name '*.1' \) -delete
+
+	if [ -n "$VERBOSE" ]; then
+		echo "Finding archive logs to truncate..."
+		find "$SRC_MOUNT/var/log" -type f -size +0c -print
+	fi
+	find "$SRC_MOUNT/var/log" -type f -size +0c -exec sh -c '> {}' \;
+
+	if [ -n "$VERBOSE" ]; then
+		echo "Finding apt cache files to delete..."
+		find "$SRC_MOUNT/var/cache/apt" -type f -name '*.bin' -print
+	fi
+	find "$SRC_MOUNT/var/cache/apt" -type f -name '*.bin' -delete
+
+	if [ -e "$SRC_MOUNT/var/tmp" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Deleting temporary files from /var/tmp..."
+			find "$SRC_MOUNT/var/tmp" -type f -print
+		fi
+		find "$SRC_MOUNT/var/tmp" -type f -delete
+	fi
+
+	if [ -n "$VERBOSE" ]; then
+		echo "Finding  localized man files to delete..."
+		find "$SRC_MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) -print
+	fi
+	find "$SRC_MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) \
+		-exec rm -rf {} \;
+
+	if [ -s "$SRC_MOUNT/etc/machine-id" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Truncating /etc/machine-id"
+		fi
+		sh -c ">$SRC_MOUNT/etc/machine-id"
+	fi
+
+	if [ -e "$SRC_MOUNT/var/lib/dbus/machine-id" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Deleting /var/lib/dbus/machine-id"
+		fi
+		rm -f "$SRC_MOUNT/var/lib/dbus/machine-id"
+	fi
+
+	if [ -n "$KEEP_SSH" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Preserving SSH host keys."
+		fi
+	else
+		if [ -n "$VERBOSE" ]; then
+			echo "Deleting SSH host keys..."
+			find "$SRC_MOUNT/etc/ssh" -type f -name 'ssh_host_*' -print
+		fi
+		find "$SRC_MOUNT/etc/ssh" -type f -name 'ssh_host_*' -delete
+	fi
+}
+
+
 clean_chroot () {
 	if [ -L "$SRC_MOUNT/etc/resolv.conf.sn-cust-bak" ]; then
 		if [ -n "$VERBOSE" ]; then
@@ -373,6 +435,9 @@ clean_chroot () {
 		rm -rf ${VERBOSE//TRUE/-v} "$SCRIPT_DIR"
 	fi
 	enable_ld_preload
+	if [ -n "$CLEAN_IMAGE" ]; then
+		clean_chroot_fluff
+	fi
 }
 
 execute_chroot () {
@@ -585,67 +650,6 @@ copy_img () {
 		sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
 	fi
 	popd
-}
-
-clean_image () {
-	if [ -n "$VERBOSE" ]; then
-		echo "Finding archive logs to delete..."
-		find "$SRC_MOUNT/var/log" -type f \( -name '*.gz' -o -name '*.1' \) -print
-	fi
-	find "$SRC_MOUNT/var/log" -type f \( -name '*.gz' -o -name '*.1' \) -delete
-
-	if [ -n "$VERBOSE" ]; then
-		echo "Finding archive logs to truncate..."
-		find "$SRC_MOUNT/var/log" -type f -size +0c -print
-	fi
-	find "$SRC_MOUNT/var/log" -type f -size +0c -exec sh -c '> {}' \;
-
-	if [ -n "$VERBOSE" ]; then
-		echo "Finding apt cache files to delete..."
-		find "$SRC_MOUNT/var/cache/apt" -type f -name '*.bin' -print
-	fi
-	find "$SRC_MOUNT/var/cache/apt" -type f -name '*.bin' -delete
-
-	if [ -e "$SRC_MOUNT/var/tmp" ]; then
-		if [ -n "$VERBOSE" ]; then
-			echo "Deleting temporary files from /var/tmp..."
-			find "$SRC_MOUNT/var/tmp" -type f -print
-		fi
-		find "$SRC_MOUNT/var/tmp" -type f -delete
-	fi
-
-	if [ -n "$VERBOSE" ]; then
-		echo "Finding  localized man files to delete..."
-		find "$SRC_MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) -print
-	fi
-	find "$SRC_MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) \
-		-exec rm -rf {} \;
-
-	if [ -s "$SRC_MOUNT/etc/machine-id" ]; then
-		if [ -n "$VERBOSE" ]; then
-			echo "Truncating /etc/machine-id"
-		fi
-		sh -c ">$SRC_MOUNT/etc/machine-id"
-	fi
-
-	if [ -e "$SRC_MOUNT/var/lib/dbus/machine-id" ]; then
-		if [ -n "$VERBOSE" ]; then
-			echo "Deleting /var/lib/dbus/machine-id"
-		fi
-		rm -f "$SRC_MOUNT/var/lib/dbus/machine-id"
-	fi
-
-	if [ -n "$KEEP_SSH" ]; then
-		if [ -n "$VERBOSE" ]; then
-			echo "Preserving SSH host keys."
-		fi
-	else
-		if [ -n "$VERBOSE" ]; then
-			echo "Deleting SSH host keys..."
-			find "$SRC_MOUNT/etc/ssh" -type f -name 'ssh_host_*' -print
-		fi
-		find "$SRC_MOUNT/etc/ssh" -type f -name 'ssh_host_*' -delete
-	fi
 }
 
 copy_src_img
