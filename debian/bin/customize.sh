@@ -32,13 +32,16 @@ DEST_ROOT_FSTYPE=""
 BOOT_DEV_LABEL="${BOOT_DEV_LABEL:-SOLARBOOT}"
 BOOT_DEV_MOUNT="${BOOT_DEV_MOUNT:-/boot}"
 ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
+
+CLEAN_IMAGE=""
 COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0"
-EXPAND_SOLARNODE_FS=""
-SHRINK_SOLARNODE_FS=""
-INTERACTIVE_MODE=""
 DEST_PATH=""
+EXPAND_SOLARNODE_FS=""
+INTERACTIVE_MODE=""
+KEEP_SSH=""
 SCRIPT_ARGS=""
+SHRINK_SOLARNODE_FS=""
 SRC_IMG=""
 VERBOSE=""
 
@@ -49,6 +52,7 @@ do_help () {
 Usage: $0 <arguments> src script [bind-mounts]
 
  -a <args>        - extra argumnets to pass to the script
+ -c               - clean out log files, temp files, SSH host keys from final image
  -E <size MB>     - shrink the SOLARNODE partition by this amount, in MB
  -e <size MB>     - expand the SOLARNODE partition by this amount, in MB
  -i               - interactive mode; run without script
@@ -59,6 +63,7 @@ Usage: $0 <arguments> src script [bind-mounts]
  -M <boot mount>  - the boot partition mount directory; defaults to /boot
  -o <out name>    - the output name for the final image
  -r <fstype>      - force a specific root filesystem type in the destination image
+ -S               - if -c set, keep SSH host keys
  -v               - increase verbosity of tasks
  -Z <options>     - xz options to use on final image; defaults to '-8 -T 0'
  -z               - compress final image with xz
@@ -82,9 +87,10 @@ To interactively customize the image (my-cust.sh is not run, but copied into ima
 EOF
 }
 
-while getopts ":a:E:e:io:M:N:n:P:p:r:vZ:z" opt; do
+while getopts ":a:cE:e:io:M:N:n:P:p:r:SvZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
+		c) CLEAN_IMAGE="TRUE";;
 		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		i) INTERACTIVE_MODE="TRUE";;
@@ -95,6 +101,7 @@ while getopts ":a:E:e:io:M:N:n:P:p:r:vZ:z" opt; do
 		P) SRC_BOOT_LABEL="${OPTARG}";;
 		p) SRC_ROOT_LABEL="${OPTARG}";;
 		r) DEST_ROOT_FSTYPE="${OPTARG}";;
+		S) KEEP_SSH="TRUE";;
 		v) VERBOSE="TRUE";;
 		Z) COMPRESS_DEST_OPTS="${OPTARG}";;
 		z) COMPRESS_DEST_IMAGE="TRUE";;
@@ -578,6 +585,67 @@ copy_img () {
 		sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
 	fi
 	popd
+}
+
+clean_image () {
+	if [ -n "$VERBOSE" ]; then
+		echo "Finding archive logs to delete..."
+		find "$SRC_MOUNT/var/log" -type f \( -name '*.gz' -o -name '*.1' \) -print
+	fi
+	find "$SRC_MOUNT/var/log" -type f \( -name '*.gz' -o -name '*.1' \) -delete
+
+	if [ -n "$VERBOSE" ]; then
+		echo "Finding archive logs to truncate..."
+		find "$SRC_MOUNT/var/log" -type f -size +0c -print
+	fi
+	find "$SRC_MOUNT/var/log" -type f -size +0c -exec sh -c '> {}' \;
+
+	if [ -n "$VERBOSE" ]; then
+		echo "Finding apt cache files to delete..."
+		find "$SRC_MOUNT/var/cache/apt" -type f -name '*.bin' -print
+	fi
+	find "$SRC_MOUNT/var/cache/apt" -type f -name '*.bin' -delete
+
+	if [ -e "$SRC_MOUNT/var/tmp" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Deleting temporary files from /var/tmp..."
+			find "$SRC_MOUNT/var/tmp" -type f -print
+		fi
+		find "$SRC_MOUNT/var/tmp" -type f -delete
+	fi
+
+	if [ -n "$VERBOSE" ]; then
+		echo "Finding  localized man files to delete..."
+		find "$SRC_MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) -print
+	fi
+	find "$SRC_MOUNT/usr/share/man" -maxdepth 1 -type d \( -name '??' -o -name '??_*' -o -name '??.*' \) \
+		-exec rm -rf {} \;
+
+	if [ -s "$SRC_MOUNT/etc/machine-id" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Truncating /etc/machine-id"
+		fi
+		sh -c ">$SRC_MOUNT/etc/machine-id"
+	fi
+
+	if [ -e "$SRC_MOUNT/var/lib/dbus/machine-id" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Deleting /var/lib/dbus/machine-id"
+		fi
+		rm -f "$SRC_MOUNT/var/lib/dbus/machine-id"
+	fi
+
+	if [ -n "$KEEP_SSH" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Preserving SSH host keys."
+		fi
+	else
+		if [ -n "$VERBOSE" ]; then
+			echo "Deleting SSH host keys..."
+			find "$SRC_MOUNT/etc/ssh" -type f -name 'ssh_host_*' -print
+		fi
+		find "$SRC_MOUNT/etc/ssh" -type f -name 'ssh_host_*' -delete
+	fi
 }
 
 copy_src_img
