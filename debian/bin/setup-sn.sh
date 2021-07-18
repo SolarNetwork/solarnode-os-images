@@ -203,8 +203,16 @@ pkg_autoremove () {
 
 # remove package if installed
 pkg_upgrade () {
-	if [ -z "$DRY_RUN" ]; then
-		apt -qy upgrade >>$LOG 2>>$ERR_LOG
+	echo -n 'Upgrading all packages... '
+	if [ -n "$DRY_RUN" ]; then
+		echo 'DRY RUN'
+	else
+		if ! apt -qy upgrade >>$LOG 2>>$ERR_LOG; then
+			echo 'ERROR'
+			exit 1
+		else
+			echo 'OK'
+		fi
 	fi
 }
 
@@ -423,6 +431,15 @@ setup_software_early () {
 	fi
 }
 
+upgrade_software () {
+	if [ -n "$UPGRADE_PKGS" ]; then
+		pkg_upgrade
+		if [ -z "$DRY_RUN" ]; then
+			apt-get clean
+		fi
+	fi
+}
+
 setup_software () {
 	[ -z "$WITHOUT_LOCALEPURGE" ] && pkg_install localepurge
 	pkg_remove rsyslog
@@ -451,6 +468,9 @@ setup_software () {
 		echo "Warning: $INPUT_DIR/$PKG_KEEP file not found!"
 	fi
 
+	# upgrade now, before install SN packages which overwrite /etc/resolv.conf
+	upgrade_software
+
 	# add all packages in manifest
 	if [ -n "$PKG_ADD" -a -e "$INPUT_DIR/$PKG_ADD" ]; then
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
@@ -468,18 +488,6 @@ setup_software () {
 	fi
 
 	apt-get clean
-}
-
-upgrade_software () {
-	if [ -n "$UPGRADE_PKGS" ]; then
-		echo -n 'Upgrading all packages... '
-		if [ -n "$DRY_RUN" ]; then
-			echo 'DRY RUN'
-		else
-			pkg_upgrade
-			echo 'OK'
-		fi
-	fi
 }
 
 setup_software_late () {
@@ -637,7 +645,6 @@ setup_systemd
 setup_apt
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software
-	upgrade_software
 fi
 setup_time
 if [ -z "$SKIP_FS_EXPAND" ]; then
