@@ -2,6 +2,32 @@
 
 This is a SolarNodeOS image based on the Debian 10 "buster" release.
 
+## 2021-07-19
+
+Based on the upstream RaspiOS (formerly Raspbian) `2021-05-07-raspios-buster-armhf-lite` image,
+and is based on Debian 10.9 and the 5.10.17 Linux kernel. This image requires a 2GB SD card at a
+minimum.
+
+Includes the following core SolarNode packages:
+
+| Package                     | Version | Description |
+|:----------------------------|:--------|:------------|
+| libmodbus                   | 3.1.6-1 | Shared library used by `mbpoll`. |
+| mbpoll                      | 1.4.11  | Command line utility to communicate with Modbus devices. | 
+| sn-nftables                 | 1.1.0-1 | Firewall configuration. |
+| sn-osstat                   | 1.1.0-1 | Support for OS statistic collection. |
+| sn-pi                       | 1.1.0-2 | Raspberry Pi specific system configuration. |
+| sn-solarpkg                 | 1.1.1-1 | SolarNode package management support. |
+| sn-solarssh                 | 1.0.0-3 | SolarSSH support. |
+| sn-system                   | 1.2.6-1 | Core OS support for SolarNode. |
+| sn-wifi                     | 1.3.0-2 | WiFi configuration management. |
+| solarnode-app-core          | [1.22.1-1][solarnode-app-core-log] | SolarNode application core. |
+| solarnode-app-io-mqtt       | 1.1.0-1 | SolarNode MQTT I/O API. |
+| solarnode-app-io-mqtt-netty | 1.0.1-1 | SolarNode MQTT I/O Netty implementation. |
+| solarnode-base              | [1.11.0-1][solarnode-base-log] | SolarNode application base framework. |
+| yasdishell                  | 1.8.1-Build9 | Interactive shell for SMA inverters using libyasdi. |
+
+
 ## 2021-06-01
 
 Based on the upstream RaspiOS (formerly Raspbian) `2021-05-07-raspios-buster-armhf-lite` image,
