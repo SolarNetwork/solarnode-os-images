@@ -207,7 +207,10 @@ pkg_upgrade () {
 	if [ -n "$DRY_RUN" ]; then
 		echo 'DRY RUN'
 	else
-		if ! apt -qy upgrade >>$LOG 2>>$ERR_LOG; then
+		if ! apt-get -qy upgrade \
+			${apt_proxy} \
+			--no-install-recommends \
+			>>$LOG 2>>$ERR_LOG; then
 			echo 'ERROR'
 			exit 1
 		else
