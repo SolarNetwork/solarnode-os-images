@@ -256,17 +256,17 @@ setup_src_loopdev () {
 		esac
 	fi
 
-	if [ ! -d "$SRC_MOUNT/$BOOT_DEV_MOUNT" ]; then
-		if ! mkdir -p "$SRC_MOUNT/$BOOT_DEV_MOUNT"; then
-			echo "Error: unable to create $SRC_MOUNT/$BOOT_DEV_MOUNT directory to mount $SOLARBOOT_PART."
+	if [ ! -d "$SRC_MOUNT$BOOT_DEV_MOUNT" ]; then
+		if ! mkdir -p "$SRC_MOUNT$BOOT_DEV_MOUNT"; then
+			echo "Error: unable to create $SRC_MOUNT$BOOT_DEV_MOUNT directory to mount $SOLARBOOT_PART."
 			exit 1
 		fi
 	fi
-	if ! mount "$SOLARBOOT_PART" "$SRC_MOUNT/$BOOT_DEV_MOUNT"; then
-		echo "Error: unable to mount $SOLARBOOT_PART on $SRC_MOUNT/$BOOT_DEV_MOUNT."
+	if ! mount "$SOLARBOOT_PART" "$SRC_MOUNT$BOOT_DEV_MOUNT"; then
+		echo "Error: unable to mount $SOLARBOOT_PART on $SRC_MOUNT$BOOT_DEV_MOUNT."
 		exit 1
 	elif [ -n "$VERBOSE" ]; then
-		echo "Mounted source $SRC_BOOT_LABEL filesystem on $SRC_MOUNT/$BOOT_DEV_MOUNT."
+		echo "Mounted source $SRC_BOOT_LABEL filesystem on $SRC_MOUNT$BOOT_DEV_MOUNT."
 	fi
 
 	FSTYPE_SOLARBOOT=$(findmnt -f -n -o FSTYPE "$SOLARBOOT_PART")
@@ -279,9 +279,9 @@ setup_src_loopdev () {
 
 close_src_loopdev () {
 	if [ -n "$VERBOSE" ]; then
-		echo "Unmounting source $SRC_BOOT_LABEL filesystem $SRC_MOUNT/$BOOT_DEV_MOUNT."
+		echo "Unmounting source $SRC_BOOT_LABEL filesystem $SRC_MOUNT$BOOT_DEV_MOUNT."
 	fi
-	umount "$SRC_MOUNT/$BOOT_DEV_MOUNT"
+	umount "$SRC_MOUNT$BOOT_DEV_MOUNT"
 	if [ -n "$VERBOSE" ]; then
 		echo "Unmounting source $SRC_ROOT_LABEL filesystem $SRC_MOUNT."
 	fi
@@ -609,7 +609,7 @@ copy_img () {
 	fi
 
 	copy_bootloader "$out_loopdev"
-	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT/$BOOT_DEV_MOUNT"
+	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT$BOOT_DEV_MOUNT"
 	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" "SOLARNODE" "$SRC_MOUNT"
 
 	setup_boot_cmdline "$out_loopdev${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$LAST_PARTUUID"

@@ -28,6 +28,7 @@ SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
 PKG_DIST="buster"
 UPDATE_PKG_CACHE=""
 UPDATE_PKG_CACHE_START=""
+UPGRADE_PKGS=""
 VERBOSE=""
 WITHOUT_SYSLOG=""
 WITHOUT_LOCALEPURGE=""
@@ -56,6 +57,7 @@ Arguments:
                           defaults to conf/setup-packages-keep.txt
  -L <err log path>      - path to error log; defaults to $INPUT_DIR/setup-sn.err
  -l <log path>          - path to error log; defaults to $INPUT_DIR/setup-sn.log
+ -m                     - upgrade all packages to latest available
  -N <name>              - release name; defaults to 'SolarNodeOS 10'
  -n                     - dry run; do not make any actual changes
  -o <proxy>             - host:port of Apt HTTP proxy to use
@@ -80,7 +82,7 @@ Arguments:
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:L:l:N:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:L:l:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
@@ -94,6 +96,7 @@ while getopts ":a:B:b:e:Eh:i:K:k:L:l:N:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 		k) PKG_KEEP="${OPTARG}";;
 		L) ERR_LOG="${OPTARG}";;
 		l) LOG="${OPTARG}";;
+		m) UPGRADE_PKGS='TRUE';;
 		N) RELEASE_NAME="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
 		o) APT_PROXY="${OPTARG}";;
@@ -195,6 +198,24 @@ pkg_remove () {
 pkg_autoremove () {
 	if [ -z "$DRY_RUN" ]; then
 		apt-get -qy autoremove --purge $1 >>$LOG 2>>$ERR_LOG
+	fi
+}
+
+# remove package if installed
+pkg_upgrade () {
+	echo -n 'Upgrading all packages... '
+	if [ -n "$DRY_RUN" ]; then
+		echo 'DRY RUN'
+	else
+		if ! apt-get -qy upgrade \
+			${apt_proxy} \
+			--no-install-recommends \
+			>>$LOG 2>>$ERR_LOG; then
+			echo 'ERROR'
+			exit 1
+		else
+			echo 'OK'
+		fi
 	fi
 }
 
@@ -413,6 +434,15 @@ setup_software_early () {
 	fi
 }
 
+upgrade_software () {
+	if [ -n "$UPGRADE_PKGS" ]; then
+		pkg_upgrade
+		if [ -z "$DRY_RUN" ]; then
+			apt-get clean
+		fi
+	fi
+}
+
 setup_software () {
 	[ -z "$WITHOUT_LOCALEPURGE" ] && pkg_install localepurge
 	pkg_remove rsyslog
@@ -440,6 +470,9 @@ setup_software () {
 	elif [ -n "$PKG_KEEP" -a ! -e "$INPUT_DIR/$PKG_KEEP" ]; then
 		echo "Warning: $INPUT_DIR/$PKG_KEEP file not found!"
 	fi
+
+	# upgrade now, before install SN packages which overwrite /etc/resolv.conf
+	upgrade_software
 
 	# add all packages in manifest
 	if [ -n "$PKG_ADD" -a -e "$INPUT_DIR/$PKG_ADD" ]; then
