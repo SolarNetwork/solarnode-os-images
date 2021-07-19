@@ -5,7 +5,7 @@ This is a SolarNodeOS image based on the Debian 10 "buster" release.
 ## 2021-07-19
 
 Based on the upstream RaspiOS (formerly Raspbian) `2021-05-07-raspios-buster-armhf-lite` image,
-and is based on Debian 10.9 and the 5.10.17 Linux kernel. This image requires a 2GB SD card at a
+and is based on Debian 10.10 and the 5.10.17 Linux kernel. This image requires a 2GB SD card at a
 minimum.
 
 Includes the following core SolarNode packages:
