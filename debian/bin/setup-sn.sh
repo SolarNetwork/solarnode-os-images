@@ -19,7 +19,8 @@ PKG_ADD="conf/setup-packages-add.txt"
 PKG_ADD_EARLY="conf/setup-packages-add-early.txt"
 PKG_DEL_LATE="conf/setup-packages-del-late.txt"
 PI_USER="pi"
-RELEASE_NAME="SolarNodeOS 10"
+RELEASE_NAME="SolarNodeOS"
+RELEASE_VERSION="10"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
 SKIP_FS_EXPAND=""
@@ -57,8 +58,9 @@ Arguments:
                           defaults to conf/setup-packages-keep.txt
  -L <err log path>      - path to error log; defaults to $INPUT_DIR/setup-sn.err
  -l <log path>          - path to error log; defaults to $INPUT_DIR/setup-sn.log
+ -M <version>           - version to append to release name; defaults to '10'
  -m                     - upgrade all packages to latest available
- -N <name>              - release name; defaults to 'SolarNodeOS 10'
+ -N <name>              - release name; defaults to 'SolarNodeOS'
  -n                     - dry run; do not make any actual changes
  -o <proxy>             - host:port of Apt HTTP proxy to use
  -P                     - update package cache
@@ -82,7 +84,7 @@ Arguments:
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:L:l:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
@@ -96,6 +98,7 @@ while getopts ":a:B:b:e:Eh:i:K:k:L:l:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 		k) PKG_KEEP="${OPTARG}";;
 		L) ERR_LOG="${OPTARG}";;
 		l) LOG="${OPTARG}";;
+		M) RELEASE_VERSION="${OPTARG}";;
 		m) UPGRADE_PKGS='TRUE';;
 		N) RELEASE_NAME="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
@@ -120,6 +123,8 @@ while getopts ":a:B:b:e:Eh:i:K:k:L:l:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 	esac
 done
 shift $(($OPTIND - 1))
+
+RELEASE_FULLNAME="$RELEASE_NAME $RELEASE_VERSION"
 
 if [ -z "$LOG" ]; then
 	LOG="$INPUT_DIR/setup-sn.log"
@@ -588,21 +593,21 @@ setup_motd () {
 }
 
 setup_issue () {
-	if ! grep "$RELEASE_NAME" /etc/issue >/dev/null 2>&1; then
+	if ! grep "$RELEASE_FULLNAME" /etc/issue >/dev/null 2>&1; then
 		echo -n 'Setting /etc/issue release name... '
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			sed -i '1s/.*\\/'"$RELEASE_NAME"' \\/' /etc/issue
+			sed -i '1s/.*\\/'"$RELEASE_FULLNAME"' \\/' /etc/issue
 			echo 'OK'
 		fi
 	fi
-	if ! grep "$RELEASE_NAME" /etc/issue.net >/dev/null 2>&1; then
+	if ! grep "$RELEASE_FULLNAME" /etc/issue.net >/dev/null 2>&1; then
 		echo -n 'Setting /etc/issue.net release name... '
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			echo -n "$RELEASE_NAME" >/etc/issue.net
+			echo -n "$RELEASE_FULLNAME" >/etc/issue.net
 			echo 'OK'
 		fi
 	fi
