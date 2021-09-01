@@ -167,13 +167,31 @@ Raspberry Pi testing source image:
 
 ```sh
 sudo ../bin/customize.sh -v -z \
-	-N 1 -n 2 -e 200 \
-	-a '-a raspberrypi -N SolarNodeOS_11 -q bullseye -Q -k no.keep -p http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com -o 172.16.159.141:3142' \
-	-o /var/tmp/solarnodeos-deb11-pi-2GB-$(date '+%Y%m%d').img \
-	/var/tmp/20210210_raspi_3_bullseye.img \
+	-N 1 -n 2 -e 200 -c \
+	-a '-a raspberrypi -M 11 -q bullseye -w -Q -K conf/packages-deb11-add.txt -k conf/packages-deb11-keep.txt -p http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com -o 172.16.159.141:3142' \
+	-o /var/tmp/solarnodeos-deb11-pi3-2GB-$(date '+%Y%m%d').img \
+	/var/tmp/20210823_raspi_3_bullseye.img \
 	../bin/setup-sn.sh \
 	$PWD:/tmp/overlay
 ```
+
+## Generating the -keep.txt list
+
+To help generate a `-keep.txt` list of packages, pass the `-i` argument to `customize.sh` to start
+an interactive shell. Then manually execute the customize script:
+
+```sh
+./customize ARGS
+```
+
+where `ARGS` is the arguments you'd normally pass via the `-a` argument. Once complete, run
+
+```sh
+dpkg-query -W -f '${Package}\n'
+```
+
+to generate the complete list of installed package names.
+
 
 # Systemd container setup
 
