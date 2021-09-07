@@ -53,8 +53,8 @@ Usage: $0 <arguments> src script [bind-mounts]
 
  -a <args>        - extra argumnets to pass to the script
  -c               - clean out log files, temp files, SSH host keys from final image
- -E <size MB>     - shrink the SOLARNODE partition by this amount, in MB
- -e <size MB>     - expand the SOLARNODE partition by this amount, in MB
+ -E <size MB>     - shrink the output SOLARNODE partition by this amount, in MB
+ -e <size MB>     - expand the input SOLARNODE partition by this amount, in MB
  -i               - interactive mode; run without script
  -N <boot part #> - the source image boot partition number, instead of using label
  -n <root part #> - the source image root partition number, instead of using label
