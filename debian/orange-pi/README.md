@@ -93,7 +93,7 @@ The Armbian build process was used to turn Armbian into SolarNodeOS by following
 
 Either check out directly or create a symbolic link to the build repository named `armbian-build`.
 
-Add the following to the `Main()` function:
+Add the following to the `Main()` function in `userpatches/customize-image.sh`:
 
 ```
 if [ -e /tmp/overlay/sn-$BOARD/bin/setup-sn.sh ]; then
