@@ -338,6 +338,14 @@ setup_mounts () {
 		echo 'tmpfs /run tmpfs rw,nosuid,noexec,relatime,size=50%,mode=755 0 0' >>$SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
 	fi
+	
+	# make sure our root mount fstype matches final output fstype
+	if ! grep -q 'LABEL='"$ROOT_DEV_LABEL"' \/ '"${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		echo -n "Changing / fstype in $SRC_MOUNT/etc/fstab to ${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}... "
+		sed -i 's/LABEL='"$ROOT_DEV_LABEL"' \/ [^ ]* /LABEL='"$ROOT_DEV_LABEL"' \/ '"${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}"' /' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+	
 }
 
 setup_chroot () {
