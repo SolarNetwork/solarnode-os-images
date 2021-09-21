@@ -311,29 +311,29 @@ enable_ld_preload () {
 
 setup_mounts () {
 	# be sure to work with UUID= and PARTUUID= and LABEL= forms; also, work with /boot and /boot/firmware
-	if grep 'UUID=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	if grep -q 'UUID=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
 		sed -i 's/^.*UUID=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
-	elif grep 'LABEL=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
-		if ! grep 'LABEL='"$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	elif grep -q 'LABEL=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		if ! grep -q 'LABEL='"$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 			echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
 			sed -i 's/^.*LABEL=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
-	if grep 'UUID=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	if grep -q 'UUID=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
 		sed -i 's/^.*UUID=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
-	elif grep 'LABEL=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
-		if ! grep 'LABEL='"$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	elif grep -q 'LABEL=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		if ! grep -q 'LABEL='"$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 			echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
 			sed -i 's/^.*LABEL=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
-	if ! grep '^tmpfs /run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	if ! grep -q '^tmpfs /run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Adding /run mount in $SRC_MOUNT/etc/fstab with explicit size... "
 		echo 'tmpfs /run tmpfs rw,nosuid,noexec,relatime,size=50%,mode=755 0 0' >>$SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
