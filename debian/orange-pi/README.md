@@ -85,7 +85,20 @@ The image is then compressed, and then a digest computed like this:
 xz -c -9 solarnode-deb9-orangepi-zero-1GB.img >solarnode-deb9-orangepi-zero-1GB.img.xz
 sha256sum solarnode-deb9-orangepi-zero-1GB.img.xz >solarnode-deb9-orangepi-zero-1GB.img.xz.sha256
 ```
+
 # Development
+
+The `customize.sh` script is used to take a vanilla Armbian OS image and turn that into SolarNodeOS.
+Thus a standard Armbian build, or downloaded image, can be used. For example to create a standard
+image using Vagrant for the `orangepizeroplus2-h5` board:
+
+```sh
+cd armbian-build/config/templates
+vagrant up
+vagrant ssh -c 'cd armbian && sudo ./compile.sh KERNEL_ONLY=no KERNEL_CONFIGURE=no BUILD_MINIMAL=yes INSTALL_HEADERS=no COMPRESS_OUTPUTIMAGE=sha,img FIXED_IMAGE_SIZE=1400 ROOTFS_TYPE=btrfs BTRFS_COMPRESSION=zstd WIREGUARD=no AUFS=no BRANCH=current CLEAN_LEVEL=debs BUILD_KSRC=no EXTERNAL=no EXTERNAL_NEW=no RELEASE=buster BOARD=orangepizeroplus2-h5'
+```
+
+# Development (legacy)
 
 The Armbian build process was used to turn Armbian into SolarNodeOS by following these steps:
 
