@@ -167,8 +167,8 @@ image:
 
 ```sh
 sudo ../bin/customize.sh -v -z \
-	-N 1 -n 2 -e 200 -E 744 -c -r btrfs \
-	-a '-a raspberrypi -M 11 -q bullseye -w -Q -K conf/packages-deb11-add.txt -k conf/packages-deb11-keep.txt -p http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com -o 172.16.159.3:3142' \
+	-N 1 -n 2 -e 200 -E 756 -c -r btrfs -M /boot/firmware \
+	-a '-a raspberrypi -b /boot/firmware -M 11 -q bullseye -m -w -Q -K conf/packages-deb11-add.txt -k conf/packages-deb11-keep.txt -o 172.16.159.143:3142' \
 	-o /var/tmp/solarnodeos-deb11-pi3-1GB-$(date '+%Y%m%d').img \
 	/var/tmp/20210823_raspi_3_bullseye.img.xz \
 	../bin/setup-sn.sh \
