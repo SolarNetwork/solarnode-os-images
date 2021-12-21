@@ -572,6 +572,12 @@ setup_boot_cmdline () {
 			sed -i '1s/$/ fsck.repair/' $tmp_mount/cmdline.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
+	elif [ -e "$tmp_mount/armbianEnv.txt" ]; then
+		if grep 'rootdev=' "$tmp_mount/armbianEnv.txt" >/dev/null 2>&1; then
+			echo -n "Changing rootdev to PARTUUID=$rootpartuuid in $tmp_mount/armbianEnv.txt... "
+			sed -i 's/rootdev=[^ ]*/rootdev=PARTUUID='"$rootpartuuid"'/' $tmp_mount/armbianEnv.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
 	fi
 	umount "$tmp_mount"
 	rmdir "$tmp_mount"
