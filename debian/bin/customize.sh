@@ -16,8 +16,8 @@ FS_OPTS[btrfs]="-q -m dup"
 FS_OPTS[ext4]="-q -m 2 -O ^64bit,^metadata_csum"
 FS_OPTS[vfat]=""
 declare -A MNT_OPTS
-MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=600,compress-force=zstd"
-MNT_OPTS[ext4]="defaults,commit=600"
+MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=60,compress-force=zstd"
+MNT_OPTS[ext4]="defaults,commit=60"
 MNT_OPTS[vfat]="defaults"
 declare -A DEST_MNT_OPTS
 DEST_MNT_OPTS[btrfs]="defaults,noatime,nodiratime,compress=zstd"
