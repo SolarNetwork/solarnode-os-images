@@ -20,8 +20,8 @@ MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=60,compress-force=zstd"
 MNT_OPTS[ext4]="defaults,commit=60"
 MNT_OPTS[vfat]="defaults"
 declare -A DEST_MNT_OPTS
-DEST_MNT_OPTS[btrfs]="defaults,noatime,nodiratime,compress=zstd"
-DEST_MNT_OPTS[ext4]="defaults,noatim"
+DEST_MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=60,compress=zstd"
+DEST_MNT_OPTS[ext4]="defaults,noatime,commit=60"
 DEST_MNT_OPTS[vfat]="defaults"
 
 SRC_BOOT_LABEL="SOLARBOOT"
@@ -346,6 +346,23 @@ setup_mounts () {
 			&& echo "OK" || echo "ERROR"
 	fi
 	
+	# make sure boot mount options match desired + errors=remount-ro
+	local fsopts="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f4)"
+	local fstype="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
+	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
+		echo -n "Changing /boot fs options in $SRC_MOUNT/etc/fstab to ${DEST_MNT_OPTS[$fstype]}... "
+		sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"' [^ ]* [^ ]*\) [^ ]* /\1 '"${DEST_MNT_OPTS[$fstype]}"',errors=remount-ro /' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+	
+	# make sure root mount options match desired
+	fsopts="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f4)"
+	fstype="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
+	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
+		echo -n "Changing / fs options in $SRC_MOUNT/etc/fstab to ${DEST_MNT_OPTS[$fstype]}... "
+		sed -i 's/\(LABEL='"$ROOT_DEV_LABEL"' [^ ]* [^ ]*\) [^ ]* /\1 '"${DEST_MNT_OPTS[$fstype]}"' /' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
 }
 
 setup_chroot () {
