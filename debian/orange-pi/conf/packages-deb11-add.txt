@@ -3,8 +3,8 @@ mbpoll
 ttf-bitstream-vera
 openjdk-11-jre-headless
 sn-nftables
+sn-orangepi
 sn-osstat
-sn-pi
 sn-solarpkg
 sn-solarssh
 sn-system

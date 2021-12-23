@@ -238,8 +238,8 @@ runit-helper
 sed
 sensible-utils
 sn-nftables
+sn-orangepi
 sn-osstat
-sn-pi
 sn-solarpkg
 sn-solarssh
 sn-system
