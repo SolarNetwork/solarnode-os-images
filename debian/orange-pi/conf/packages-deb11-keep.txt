@@ -3,6 +3,7 @@ apt
 apt-transport-https
 apt-utils
 armbian-bsp-cli-orangepizero
+armbian-bsp-cli-orangepizeroplus
 armbian-firmware
 base-files
 base-passwd
