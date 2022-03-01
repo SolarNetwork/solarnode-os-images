@@ -1,11 +1,10 @@
-libmodbus
+btrfs-progs
 mbpoll
 ttf-bitstream-vera
 openjdk-11-jre-headless
 sn-nftables
 sn-osstat
 sn-pi
-sn-rxtx
 sn-solarpkg
 sn-solarssh
 sn-system

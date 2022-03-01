@@ -1,6 +1,6 @@
 # SolarNode Orange Pi Images
 
-These images were created for the the [Orange Pi][1], based 
+These images were created for the the [Orange Pi][1], based
 off the [Node OS Setup Guide - Armbian Orange Pi][2].
 
 The image names are in the form `[OS]-[hardware]-[SD size]`. **Note**
@@ -11,20 +11,20 @@ the additional space.
 The *hardware* names are as follows:
 
  * `orangepi-zero` - the 512MB RAM version of the [Orange Pi Zero][3]
- 	
+
 # How to copy images to SD card
 
 To restore these onto a SD card, run the following command:
 
 	# Copy image to SD card located at /dev/sdd
 	xz -cd solarnode-deb9-orangepi-zero-1GB.img.xz |dd of=/dev/sdd bs=2M
-	
+
 	# Sync to disk
 	sync
-	
+
 	# Re-read the partition table
 	blockdev --rereadpt /dev/sdd
-	
+
 	# Just to be sure, let's check the root filesystem
 	e2fsck -f /dev/sdd1
 
@@ -85,7 +85,20 @@ The image is then compressed, and then a digest computed like this:
 xz -c -9 solarnode-deb9-orangepi-zero-1GB.img >solarnode-deb9-orangepi-zero-1GB.img.xz
 sha256sum solarnode-deb9-orangepi-zero-1GB.img.xz >solarnode-deb9-orangepi-zero-1GB.img.xz.sha256
 ```
+
 # Development
+
+The `customize.sh` script is used to take a vanilla Armbian OS image and turn that into SolarNodeOS.
+Thus a standard Armbian build, or downloaded image, can be used. For example to create a standard
+image using Vagrant for the `orangepizeroplus2-h5` board:
+
+```sh
+cd armbian-build/config/templates
+vagrant up
+vagrant ssh -c 'cd armbian && sudo ./compile.sh KERNEL_ONLY=no KERNEL_CONFIGURE=no BUILD_MINIMAL=yes INSTALL_HEADERS=no COMPRESS_OUTPUTIMAGE=sha,img FIXED_IMAGE_SIZE=1400 ROOTFS_TYPE=btrfs BTRFS_COMPRESSION=zstd WIREGUARD=no AUFS=no BRANCH=current CLEAN_LEVEL=debs BUILD_KSRC=no EXTERNAL=no EXTERNAL_NEW=no RELEASE=buster BOARD=orangepizeroplus2-h5'
+```
+
+# Development (legacy)
 
 The Armbian build process was used to turn Armbian into SolarNodeOS by following these steps:
 
@@ -93,16 +106,14 @@ The Armbian build process was used to turn Armbian into SolarNodeOS by following
 
 Either check out directly or create a symbolic link to the build repository named `armbian-build`.
 
-Add the following to the `Main()` function:
+Adjust the `Main()` function in `userpatches/customize-image.sh`. See [the example Main()
+function](../conf/armbian-customize-image-example.sh) for more details. For example:
 
 ```
-if [ -e /tmp/overlay/sn-$BOARD/bin/setup-sn.sh ]; then
-	echo "SolarNode setup script discovered at /tmp/overlay/sn-$BOARD/bin/setup-sn.sh"
-	export LANG=C LC_ALL="C"
-	export DEBIAN_FRONTEND=noninteractive
-	/tmp/overlay/sn-$BOARD/bin/setup-sn.sh -a $BOARD -i /tmp/overlay/sn-$BOARD
+Main() {
+	echo "HOWDY! $RELEASE,$LINUXFAMILY,$BOARD"
 	rm -f /root/.not_logged_in_yet
-fi
+} # Main
 ```
 
 Copy the contents of this directory to the `userpatches/overlay` directory as the appropriate
@@ -119,9 +130,22 @@ Bring up Vagrant and then run build:
 ```sh
 $ cd armbian-build/config/templates
 $ vagrant reload
-$ vagrant ssh -c 'sudo BOARD=orangepizero armbian/userpatches/overlay/sn-orangepizero/bin/armbian-build.sh -z'
+$ vagrant ssh -c 'sudo BOARD=orangepizero armbian/userpatches/overlay/sn-orangepizero/bin/armbian-build.sh -I'
 ```
 
-  [1]: https://www.orangepi.org/
-  [2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Armbian-Orange-Pi
-  [3]: http://www.orangepi.org/orangepizero/
+Now you can run the `customize.sh` script to turn the Armbian image into SolarNodeOS. For example
+here's a development build of Debian 11 (Bullseye):
+
+```
+sudo /opt/sn/solarnode-os-images/debian/bin/customize.sh -v -z \
+        -N 1 -n 2 -e 200 -E 400 -c -r btrfs \
+        -a '-a orangepizero -M 11 -q bullseye -w -Q -K conf/packages-deb11-add.txt -k conf/packages-deb11-keep.txt -p http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com -o 172.16.159.3:3142' \
+        -o /var/tmp/solarnodeos-deb11-orangepi-zero-1GB-$(date '+%Y%m%d').img \
+        ~/Documents/solarnode-os-images/debian/orange-pi/armbian-build/output/images/Armbian_21.11.0-trunk_Orangepizero_bullseye_current_5.10.60_minimal.img \
+        ~/Documents/solarnode-os-images/debian/bin/setup-sn.sh \
+        ~/Documents/solarnode-os-images/debian/orange-pi:/tmp/overlay
+```
+
+[1]: https://www.orangepi.org/
+[2]: https://github.com/SolarNetwork/solarnetwork/wiki/Node-OS-Setup-Guide-Armbian-Orange-Pi
+[3]: http://www.orangepi.org/orangepizero/

@@ -16,12 +16,12 @@ FS_OPTS[btrfs]="-q -m dup"
 FS_OPTS[ext4]="-q -m 2 -O ^64bit,^metadata_csum"
 FS_OPTS[vfat]=""
 declare -A MNT_OPTS
-MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=600,compress-force=zstd"
-MNT_OPTS[ext4]="defaults,commit=600"
+MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=60,compress-force=zstd"
+MNT_OPTS[ext4]="defaults,commit=60"
 MNT_OPTS[vfat]="defaults"
 declare -A DEST_MNT_OPTS
-DEST_MNT_OPTS[btrfs]="defaults,noatime,nodiratime,compress=zstd"
-DEST_MNT_OPTS[ext4]="defaults,noatim"
+DEST_MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=60,compress=zstd"
+DEST_MNT_OPTS[ext4]="defaults,noatime,commit=60"
 DEST_MNT_OPTS[vfat]="defaults"
 
 SRC_BOOT_LABEL="SOLARBOOT"
@@ -53,8 +53,8 @@ Usage: $0 <arguments> src script [bind-mounts]
 
  -a <args>        - extra argumnets to pass to the script
  -c               - clean out log files, temp files, SSH host keys from final image
- -E <size MB>     - shrink the SOLARNODE partition by this amount, in MB
- -e <size MB>     - expand the SOLARNODE partition by this amount, in MB
+ -E <size MB>     - shrink the output SOLARNODE partition by this amount, in MB
+ -e <size MB>     - expand the input SOLARNODE partition by this amount, in MB
  -i               - interactive mode; run without script
  -N <boot part #> - the source image boot partition number, instead of using label
  -n <root part #> - the source image root partition number, instead of using label
@@ -311,31 +311,56 @@ enable_ld_preload () {
 
 setup_mounts () {
 	# be sure to work with UUID= and PARTUUID= and LABEL= forms; also, work with /boot and /boot/firmware
-	if grep 'UUID=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	if grep -q 'UUID=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
 		sed -i 's/^.*UUID=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
-	elif grep 'LABEL=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
-		if ! grep 'LABEL='"$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	elif grep -q 'LABEL=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		if ! grep -q 'LABEL='"$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 			echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
 			sed -i 's/^.*LABEL=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
-	if grep 'UUID=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	if grep -q 'UUID=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
 		sed -i 's/^.*UUID=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
-	elif grep 'LABEL=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
-		if ! grep 'LABEL='"$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	elif grep -q 'LABEL=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		if ! grep -q 'LABEL='"$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 			echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
 			sed -i 's/^.*LABEL=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
-	if ! grep '^tmpfs /run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	if ! grep -q '^tmpfs /run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Adding /run mount in $SRC_MOUNT/etc/fstab with explicit size... "
 		echo 'tmpfs /run tmpfs rw,nosuid,noexec,relatime,size=50%,mode=755 0 0' >>$SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+	
+	# make sure our root mount fstype matches final output fstype
+	if ! grep -q 'LABEL='"$ROOT_DEV_LABEL"' \/ '"${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+		echo -n "Changing / fstype in $SRC_MOUNT/etc/fstab to ${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}... "
+		sed -i 's/LABEL='"$ROOT_DEV_LABEL"' \/ [^ ]* /LABEL='"$ROOT_DEV_LABEL"' \/ '"${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}"' /' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+	
+	# make sure boot mount options match desired + errors=remount-ro
+	local fsopts="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f4)"
+	local fstype="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
+	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
+		echo -n "Changing /boot fs options in $SRC_MOUNT/etc/fstab to ${DEST_MNT_OPTS[$fstype]}... "
+		sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"' [^ ]* [^ ]*\) [^ ]* /\1 '"${DEST_MNT_OPTS[$fstype]}"',errors=remount-ro /' $SRC_MOUNT/etc/fstab \
+			&& echo "OK" || echo "ERROR"
+	fi
+	
+	# make sure root mount options match desired
+	fsopts="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f4)"
+	fstype="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
+	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
+		echo -n "Changing / fs options in $SRC_MOUNT/etc/fstab to ${DEST_MNT_OPTS[$fstype]}... "
+		sed -i 's/\(LABEL='"$ROOT_DEV_LABEL"' [^ ]* [^ ]*\) [^ ]* /\1 '"${DEST_MNT_OPTS[$fstype]}"' /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
 	fi
 }
@@ -562,6 +587,12 @@ setup_boot_cmdline () {
 		if ! grep ' fsck.repair=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
 			echo -n "Adding fsck.repair=yes to $tmp_mount/cmdline.txt... "
 			sed -i '1s/$/ fsck.repair/' $tmp_mount/cmdline.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
+	elif [ -e "$tmp_mount/armbianEnv.txt" ]; then
+		if grep 'rootdev=' "$tmp_mount/armbianEnv.txt" >/dev/null 2>&1; then
+			echo -n "Changing rootdev to PARTUUID=$rootpartuuid in $tmp_mount/armbianEnv.txt... "
+			sed -i 's/rootdev=[^ ]*/rootdev=PARTUUID='"$rootpartuuid"'/' $tmp_mount/armbianEnv.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi

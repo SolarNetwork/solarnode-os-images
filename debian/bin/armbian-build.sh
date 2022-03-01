@@ -7,9 +7,11 @@ ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
 BUILD_HOME="armbian"
 COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0"
+DEBIAN_VERSION="10"
 IMAGE_SIZE="952"
 SKIP_BUILD=""
 SKIP_DATE_CHECK=""
+SKIP_CUST_IMAGE=""
 
 do_help () {
 	cat 1>&2 <<EOF
@@ -20,18 +22,22 @@ Setup script for a minimal SolarNode OS based on Armbian.
 Arguments:
  -B                     - skip Armbian build
  -D                     - skip image date check
+ -I                     - skip custom image creation (use the customize.sh script later)
  -h <armbian build dir> - path to the Armbian build directory; defaults to armbian-build
+ -M <debian version>    - defaults to 10; supported values are: 10, 11
  -s <mb>                - size of disk image, in MB; defaults to 952
  -Z <options>           - xz options to use on final image; defaults to '-8 -T 0'
  -z                     - compress final image with xz
 EOF
 }
 
-while getopts ":BDh:s:Z:z" opt; do
+while getopts ":BDIh:M:s:Z:z" opt; do
 	case $opt in
 		B) SKIP_BUILD='TRUE';;
 		D) SKIP_DATE_CHECK='TRUE';;
+		I) SKIP_CUST_IMAGE='TRUE';;
 		h) BUILD_HOME="${OPTARG}";;
+		M) DEBIAN_VERSION="${OPTARG}";;
 		s) IMAGE_SIZE="${OPTARG}";;
 		Z) COMPRESS_DEST_OPTS="${OPTARG}";;
 		z) COMPRESS_DEST_IMAGE="TRUE";;
@@ -52,6 +58,27 @@ if [ ! -e "${BUILD_HOME}/compile.sh" ]; then
 	echo "Invalid build home '$BUILD_HOME', compile.sh not found."
 	exit 1
 fi
+
+DEBIAN_NAME=""
+OUTPUT_RELEASE=""
+
+case "$DEBIAN_VERSION" in
+	10)
+		DEBIAN_NAME="buster"
+		OUTPUT_RELEASE="deb10"
+		;;
+		
+	11)
+		DEBIAN_NAME="bullseye"
+		OUTPUT_RELEASE="deb11"
+		;;
+		
+	*)
+			echo "Unknown Debian version ${OPTARG}"
+			do_help
+			exit 1
+esac
+
 
 setup_dev_btrfs () {
 	local dev="$1"
@@ -158,7 +185,7 @@ if [ -z "$SKIP_BUILD" ]; then
 		BUILD_KSRC=no \
 		EXTERNAL=no EXTERNAL_NEW=no \
 		BRANCH=current \
-		RELEASE=buster \
+		RELEASE=$DEBIAN_NAME \
 		BOARD=$BOARD
 	popd >/dev/null
 fi
@@ -174,51 +201,53 @@ if [ -z "$SKIP_DATE_CHECK" -a ! "$IMGNAME" -nt "$DATE_MARKER" ]; then
 fi
 echo "OS image: $IMGNAME"
 
-# have to copy image to internal disk (not Vagrant shared disk) for losetup to work
-TMPIMG=$(mktemp -t sn-XXXXX)
-cp -a "$IMGNAME" "$TMPIMG"
+if [ -z "$SKIP_CUST_IMAGE" ]; then
+	# have to copy image to internal disk (not Vagrant shared disk) for losetup to work
+	TMPIMG=$(mktemp -t sn-XXXXX)
+	cp -a "$IMGNAME" "$TMPIMG"
 
-LOOPDEV=`losetup --partscan --find --show $TMPIMG`
-if [ -z "$LOOPDEV" ]; then
-	echo "Error: loop device not discovered for image $TMPIMG"
-	exit 4
-else
-	echo "Image loop device created as $LOOPDEV"
+	LOOPDEV=`losetup --partscan --find --show $TMPIMG`
+	if [ -z "$LOOPDEV" ]; then
+		echo "Error: loop device not discovered for image $TMPIMG"
+		exit 4
+	else
+		echo "Image loop device created as $LOOPDEV"
+	fi
+
+	LOOPPART_BOOT=$(ls -1 ${LOOPDEV}p* 2>/dev/null |head -1)
+	if [ -z "$LOOPPART_BOOT" ]; then
+		echo "Error: boot partition not discovered for device $LOOPDEV"
+		exit 4
+	else
+		echo "Boot partition: $LOOPPART_BOOT"
+	fi
+
+	LOOPPART_ROOT=$(ls -1r ${LOOPDEV}p* 2>/dev/null |head -1)
+	if [ -z "$LOOPPART_ROOT" ]; then
+		echo "Error: root partition not discovered for device $LOOPDEV"
+		exit 4
+	else
+		echo "Root partition: $LOOPPART_ROOT"
+	fi
+
+	MOUNT_BOOT=$(mktemp -d -t sn-XXXXX)
+	MOUNT_ROOT=$(mktemp -d -t sn-XXXXX)
+	mount "$LOOPPART_BOOT" "$MOUNT_BOOT"
+	mount "$LOOPPART_ROOT" "$MOUNT_ROOT"
+	echo "Mounted $LOOPPART_BOOT on $MOUNT_BOOT"
+	echo "Mounted $LOOPPART_ROOT on $MOUNT_ROOT"
+
+	setup_boot_dev "$LOOPPART_BOOT" "$MOUNT_BOOT"
+	setup_root_dev "$LOOPPART_ROOT" "$MOUNT_ROOT"
+
+	umount "$MOUNT_BOOT"
+	umount "$MOUNT_ROOT"
+	rmdir "$MOUNT_BOOT"
+	rmdir "$MOUNT_ROOT"
+	losetup -d $LOOPDEV
+
+	OUTIMG="${BUILD_HOME}/output/images/solarnodeos-$OUTPUT_RELEASE-$BOARD-1GB-$DATE.img"
+	mv "$TMPIMG" "$OUTIMG"
+	echo "Image saved to $OUTIMG"
+	finish_output "$OUTIMG"
 fi
-
-LOOPPART_BOOT=$(ls -1 ${LOOPDEV}p* 2>/dev/null |head -1)
-if [ -z "$LOOPPART_BOOT" ]; then
-	echo "Error: boot partition not discovered for device $LOOPDEV"
-	exit 4
-else
-	echo "Boot partition: $LOOPPART_BOOT"
-fi
-
-LOOPPART_ROOT=$(ls -1r ${LOOPDEV}p* 2>/dev/null |head -1)
-if [ -z "$LOOPPART_ROOT" ]; then
-	echo "Error: root partition not discovered for device $LOOPDEV"
-	exit 4
-else
-	echo "Root partition: $LOOPPART_ROOT"
-fi
-
-MOUNT_BOOT=$(mktemp -d -t sn-XXXXX)
-MOUNT_ROOT=$(mktemp -d -t sn-XXXXX)
-mount "$LOOPPART_BOOT" "$MOUNT_BOOT"
-mount "$LOOPPART_ROOT" "$MOUNT_ROOT"
-echo "Mounted $LOOPPART_BOOT on $MOUNT_BOOT"
-echo "Mounted $LOOPPART_ROOT on $MOUNT_ROOT"
-
-setup_boot_dev "$LOOPPART_BOOT" "$MOUNT_BOOT"
-setup_root_dev "$LOOPPART_ROOT" "$MOUNT_ROOT"
-
-umount "$MOUNT_BOOT"
-umount "$MOUNT_ROOT"
-rmdir "$MOUNT_BOOT"
-rmdir "$MOUNT_ROOT"
-losetup -d $LOOPDEV
-
-OUTIMG="${BUILD_HOME}/output/images/solarnodeos-deb10-$BOARD-1GB-$DATE.img"
-mv "$TMPIMG" "$OUTIMG"
-echo "Image saved to $OUTIMG"
-finish_output "$OUTIMG"

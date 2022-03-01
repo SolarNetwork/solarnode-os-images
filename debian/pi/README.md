@@ -155,25 +155,42 @@ Raspbian-based OS image into SolarNodeOS. This can be executed via the
 sudo ../bin/customize.sh -v -z \
 	-E 500 \
 	-P boot -p rootfs \
-	-a '-a raspberrypi -o 172.16.159.196:3142' \
+	-a '-a raspberrypi -o 172.16.159.3:3142' \
 	-o solarnodeos-deb10-pi-2GB-$(date '+%Y%m%d').img \
 	/var/tmp/2020-08-20-raspios-buster-armhf-lite.img \
 	../bin/setup-sn.sh \
 	$PWD:/tmp/overlay 
 ```
 
-Here's an example of creating a development-centric SolarNodeOS image out of a Debian `bullseye`
-Raspberry Pi testing source image:
+Here's an example of creating a SolarNodeOS 11 image out of a Debian `bullseye` Raspberry Pi source
+image:
 
 ```sh
 sudo ../bin/customize.sh -v -z \
-	-N 1 -n 2 -e 200 \
-	-a '-a raspberrypi -N SolarNodeOS_11 -q bullseye -Q -k no.keep -p http://snf-debian-repo-stage.s3-website-us-west-2.amazonaws.com -o 172.16.159.141:3142' \
-	-o /var/tmp/solarnodeos-deb11-pi-2GB-$(date '+%Y%m%d').img \
-	/var/tmp/20210210_raspi_3_bullseye.img \
+	-N 1 -n 2 -e 200 -E 756 -c -r btrfs -M /boot/firmware \
+	-a '-a raspberrypi -b /boot/firmware -M 11 -q bullseye -m -w -Q -K conf/packages-deb11-add.txt -k conf/packages-deb11-keep.txt -o 172.16.159.143:3142' \
+	-o /var/tmp/solarnodeos-deb11-pi3-1GB-$(date '+%Y%m%d').img \
+	/var/tmp/20210823_raspi_3_bullseye.img.xz \
 	../bin/setup-sn.sh \
-	$PWD:/tmp/overlay
+	$PWD:/tmp/overlay```
+
+## Generating the -keep.txt list
+
+To help generate a `-keep.txt` list of packages, pass the `-i` argument to `customize.sh` to start
+an interactive shell. Then manually execute the customize script:
+
+```sh
+./customize ARGS
 ```
+
+where `ARGS` is the arguments you'd normally pass via the `-a` argument. Once complete, run
+
+```sh
+dpkg-query -W -f '${Package}\n'
+```
+
+to generate the complete list of installed package names.
+
 
 # Systemd container setup
 

@@ -9,8 +9,8 @@ APP_USER="solar"
 APP_USER_PASS="solar"
 APT_PROXY=""
 BOARD="raspberrypi"
-BOOT_DEV="/dev/mmcblk0p1"
 BOOT_DEV_LABEL="SOLARBOOT"
+BOOT_MOUNT="/boot"
 DRY_RUN=""
 HOSTNAME="solarnode"
 INPUT_DIR="/tmp/overlay"
@@ -19,7 +19,8 @@ PKG_ADD="conf/setup-packages-add.txt"
 PKG_ADD_EARLY="conf/setup-packages-add-early.txt"
 PKG_DEL_LATE="conf/setup-packages-del-late.txt"
 PI_USER="pi"
-RELEASE_NAME="SolarNodeOS 10"
+RELEASE_NAME="SolarNodeOS"
+RELEASE_VERSION="10"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
 SKIP_FS_EXPAND=""
@@ -42,7 +43,7 @@ Setup script for a minimal SolarNode OS based on an upstream OS.
 Arguments:
  -a <board>             - the Armbian board being set up; defaults to nanopiair
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
- -b <boot dev>          - the boot device; defaults to /dev/mmcblk0p1
+ -b <boot mount>        - the boot mount path; defaults to /boot
  -d <package list file> - path to list of packages to delete late in script;
                           defaults to conf/setup-packages-del-late.txt
  -e <package list file> - path to list of packages to add early in script;
@@ -57,8 +58,9 @@ Arguments:
                           defaults to conf/setup-packages-keep.txt
  -L <err log path>      - path to error log; defaults to $INPUT_DIR/setup-sn.err
  -l <log path>          - path to error log; defaults to $INPUT_DIR/setup-sn.log
+ -M <version>           - version to append to release name; defaults to '10'
  -m                     - upgrade all packages to latest available
- -N <name>              - release name; defaults to 'SolarNodeOS 10'
+ -N <name>              - release name; defaults to 'SolarNodeOS'
  -n                     - dry run; do not make any actual changes
  -o <proxy>             - host:port of Apt HTTP proxy to use
  -P                     - update package cache
@@ -82,11 +84,11 @@ Arguments:
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:L:l:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
+while getopts ":a:B:b:e:Eh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 	case $opt in
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
-		b) BOOT_DEV="${OPTARG}";;
+		b) BOOT_MOUNT="${OPTARG}";;
 		d) PKG_DEL_LATE="${OPTARG}";;
 		e) PKG_ADD_EARLY="${OPTARG}";;
 		E) SKIP_FS_EXPAND='TRUE';;
@@ -96,6 +98,7 @@ while getopts ":a:B:b:e:Eh:i:K:k:L:l:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 		k) PKG_KEEP="${OPTARG}";;
 		L) ERR_LOG="${OPTARG}";;
 		l) LOG="${OPTARG}";;
+		M) RELEASE_VERSION="${OPTARG}";;
 		m) UPGRADE_PKGS='TRUE';;
 		N) RELEASE_NAME="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
@@ -120,6 +123,8 @@ while getopts ":a:B:b:e:Eh:i:K:k:L:l:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 	esac
 done
 shift $(($OPTIND - 1))
+
+RELEASE_FULLNAME="$RELEASE_NAME $RELEASE_VERSION"
 
 if [ -z "$LOG" ]; then
 	LOG="$INPUT_DIR/setup-sn.log"
@@ -525,14 +530,14 @@ setup_time () {
 
 setup_expandfs () {
 	# the sn-expandfs service will look for this file on boot, and expand the root fs
-	if [ -e /boot/sn-expandfs ]; then
-		echo 'Boot time filesystem expand marker /boot/sn-expandfs already available.'
+	if [ -e $BOOT_MOUNT/sn-expandfs ]; then
+		echo "Boot time filesystem expand marker $BOOT_MOUNT/sn-expandfs already available."
 	else
-		echo -n 'Creating boot time filesystem expand marker /boot/sn-expandfs... '
+		echo -n "Creating boot time filesystem expand marker $BOOT_MOUNT/sn-expandfs... "
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			if touch /boot/sn-expandfs; then
+			if touch $BOOT_MOUNT/sn-expandfs; then
 				echo 'OK'
 			else
 				echo 'ERROR'
@@ -588,36 +593,36 @@ setup_motd () {
 }
 
 setup_issue () {
-	if ! grep "$RELEASE_NAME" /etc/issue >/dev/null 2>&1; then
+	if ! grep "$RELEASE_FULLNAME" /etc/issue >/dev/null 2>&1; then
 		echo -n 'Setting /etc/issue release name... '
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			sed -i '1s/.*\\/'"$RELEASE_NAME"' \\/' /etc/issue
+			sed -i '1s/.*\\/'"$RELEASE_FULLNAME"' \\/' /etc/issue
 			echo 'OK'
 		fi
 	fi
-	if ! grep "$RELEASE_NAME" /etc/issue.net >/dev/null 2>&1; then
+	if ! grep "$RELEASE_FULLNAME" /etc/issue.net >/dev/null 2>&1; then
 		echo -n 'Setting /etc/issue.net release name... '
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			echo -n "$RELEASE_NAME" >/etc/issue.net
+			echo -n "$RELEASE_FULLNAME" >/etc/issue.net
 			echo 'OK'
 		fi
 	fi
 }
 
 append_boot_cmdline () {
-	if [ -e /boot/cmdline.txt ]; then
-		if grep -q "$1" /boot/cmdline.txt; then
-			echo "$1 configured in /boot/cmdline.txt already."
+	if [ -e $BOOT_MOUNT/cmdline.txt ]; then
+		if grep -q "$1" $BOOT_MOUNT/cmdline.txt; then
+			echo "$1 configured in $BOOT_MOUNT/cmdline.txt already."
 		else
-			echo -n "Adding $1 to /boot/cmdline.txt... "
+			echo -n "Adding $1 to $BOOT_MOUNT/cmdline.txt... "
 			if [ -n "$DRY_RUN" ]; then
 				echo 'DRY RUN'
 			else
-				sed -i '1s/$/ '"$1"'/' /boot/cmdline.txt && echo "OK" || echo "ERROR"
+				sed -i '1s/$/ '"$1"'/' $BOOT_MOUNT/cmdline.txt && echo "OK" || echo "ERROR"
 			fi
 		fi
 	fi
