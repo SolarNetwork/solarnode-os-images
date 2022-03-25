@@ -40,6 +40,7 @@ DEST_PATH=""
 EXPAND_SOLARNODE_FS=""
 INTERACTIVE_MODE=""
 KEEP_SSH=""
+NO_BOOT_PARTITION=""
 SCRIPT_ARGS=""
 SHRINK_SOLARNODE_FS=""
 SRC_IMG=""
@@ -52,23 +53,28 @@ do_help () {
 Usage: $0 <arguments> src script [bind-mounts]
 
  -a <args>        - extra argumnets to pass to the script
- -c               - clean out log files, temp files, SSH host keys from final image
+ -B               - disable separate boot partition (single root partition)
+ -c               - clean out log files, temp files, SSH host keys from final
+                    image
  -E <size MB>     - shrink the output SOLARNODE partition by this amount, in MB
  -e <size MB>     - expand the input SOLARNODE partition by this amount, in MB
  -i               - interactive mode; run without script
- -N <boot part #> - the source image boot partition number, instead of using label
- -n <root part #> - the source image root partition number, instead of using label
- -P <boot label>  - the source image boot partition label; defaults to SOLARBOOT
- -p <root label>  - the source image root partition label; defaults to SOLARNODE
+ -N <boot part #> - the source boot partition number, instead of using label
+ -n <root part #> - the source root partition number, instead of using label
+ -P <boot label>  - the source boot partition label; defaults to SOLARBOOT
+ -p <root label>  - the source root partition label; defaults to SOLARNODE
  -M <boot mount>  - the boot partition mount directory; defaults to /boot
  -o <out name>    - the output name for the final image
- -r <fstype>      - force a specific root filesystem type in the destination image
+ -r <fstype>      - use specific root filesystem type in the destination image
  -S               - if -c set, keep SSH host keys
  -v               - increase verbosity of tasks
  -Z <options>     - xz options to use on final image; defaults to '-8 -T 0'
  -z               - compress final image with xz
 
-The bind-mounts argument must adhere to the systemd-nspawn --bind-ro syntax,
+The 'src' image can be either a raw image or an xz-compressed one; the filename
+must end in '.xz' to be treated as such.
+
+The `bind-mounts` argument must adhere to the systemd-nspawn --bind-ro syntax,
 that is something like 'src:mount'. Multiple mounts should be separarted by
 commas. This mounts will then be available to the customization script.
 
@@ -80,16 +86,18 @@ To expand the root filesystem by 500 MB:
 
   ./customize.sh -e 500 solarnodeos-20200820.img my-cust.sh
 
-To interactively customize the image (my-cust.sh is not run, but copied into image):
+To interactively customize the image ('script' is not run, but copied into the
+image as 'customize.sh'):
 
   ./customize.sh -i solarnodeos-20200820.img my-cust.sh
 
 EOF
 }
 
-while getopts ":a:cE:e:io:M:N:n:P:p:r:SvZ:z" opt; do
+while getopts ":a:BcE:e:io:M:N:n:P:p:r:SvZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
+		B) NO_BOOT_PARTITION="TRUE";;
 		c) CLEAN_IMAGE="TRUE";;
 		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
@@ -201,18 +209,20 @@ setup_src_loopdev () {
 	# seems system needs a little rest before labels are available in lsblk?
 	sleep 1
 
-	if [ -n "$SRC_BOOT_PARTNUM" ]; then
-		SOLARBOOT_PART=$(lsblk -npo kname $LOOPDEV |tail +$((1+$SRC_BOOT_PARTNUM)) |head -n 1)
-	else
-		SOLARBOOT_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_BOOT_LABEL |cut -d' ' -f 1)
+	if [ -z "$NO_BOOT_PARTITION" ]; then
+		if [ -n "$SRC_BOOT_PARTNUM" ]; then
+			SOLARBOOT_PART=$(lsblk -npo kname $LOOPDEV |tail +$((1+$SRC_BOOT_PARTNUM)) |head -n 1)
+		else
+			SOLARBOOT_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_BOOT_LABEL |cut -d' ' -f 1)
+		fi
+		if [ -z "$SOLARBOOT_PART" ]; then
+			echo "Error: $SRC_BOOT_LABEL partition not discovered"
+			exit 1
+		elif [ -n "$VERBOSE" ]; then
+			echo "Discovered source $SRC_BOOT_LABEL partition ${SOLARBOOT_PART}."
+		fi
 	fi
-	if [ -z "$SOLARBOOT_PART" ]; then
-		echo "Error: $SRC_BOOT_LABEL partition not discovered"
-		exit 1
-	elif [ -n "$VERBOSE" ]; then
-		echo "Discovered source $SRC_BOOT_LABEL partition ${SOLARBOOT_PART}."
-	fi
-
+	
 	if [ -n "$SRC_BOOT_PARTNUM" ]; then
 		SOLARNODE_PART=$(lsblk -npo kname $LOOPDEV |tail +$((1+$SRC_ROOT_PARTNUM)) |head -n 1)
 	else
@@ -256,34 +266,38 @@ setup_src_loopdev () {
 		esac
 	fi
 
-	if [ ! -d "$SRC_MOUNT$BOOT_DEV_MOUNT" ]; then
-		if ! mkdir -p "$SRC_MOUNT$BOOT_DEV_MOUNT"; then
-			echo "Error: unable to create $SRC_MOUNT$BOOT_DEV_MOUNT directory to mount $SOLARBOOT_PART."
-			exit 1
+	if [ -z "$NO_BOOT_PARTITION" ]; then
+		if [ ! -d "$SRC_MOUNT$BOOT_DEV_MOUNT" ]; then
+			if ! mkdir -p "$SRC_MOUNT$BOOT_DEV_MOUNT"; then
+				echo "Error: unable to create $SRC_MOUNT$BOOT_DEV_MOUNT directory to mount $SOLARBOOT_PART."
+				exit 1
+			fi
 		fi
-	fi
-	if ! mount "$SOLARBOOT_PART" "$SRC_MOUNT$BOOT_DEV_MOUNT"; then
-		echo "Error: unable to mount $SOLARBOOT_PART on $SRC_MOUNT$BOOT_DEV_MOUNT."
-		exit 1
-	elif [ -n "$VERBOSE" ]; then
-		echo "Mounted source $SRC_BOOT_LABEL filesystem on $SRC_MOUNT$BOOT_DEV_MOUNT."
-	fi
+		if ! mount "$SOLARBOOT_PART" "$SRC_MOUNT$BOOT_DEV_MOUNT"; then
+			echo "Error: unable to mount $SOLARBOOT_PART on $SRC_MOUNT$BOOT_DEV_MOUNT."
+			exit 1
+		elif [ -n "$VERBOSE" ]; then
+			echo "Mounted source $SRC_BOOT_LABEL filesystem on $SRC_MOUNT$BOOT_DEV_MOUNT."
+		fi
 
-	FSTYPE_SOLARBOOT=$(findmnt -f -n -o FSTYPE "$SOLARBOOT_PART")
-	if [ -z "$FSTYPE_SOLARBOOT" ]; then
-		echo "Error: $SRC_BOOT_LABEL filesystem type not discovered."
-	elif [ -n "$VERBOSE" ]; then
-		echo "Discovered source $SRC_BOOT_LABEL filesystem type $FSTYPE_SOLARBOOT."
+		FSTYPE_SOLARBOOT=$(findmnt -f -n -o FSTYPE "$SOLARBOOT_PART")
+		if [ -z "$FSTYPE_SOLARBOOT" ]; then
+			echo "Error: $SRC_BOOT_LABEL filesystem type not discovered."
+		elif [ -n "$VERBOSE" ]; then
+			echo "Discovered source $SRC_BOOT_LABEL filesystem type $FSTYPE_SOLARBOOT."
+		fi
 	fi
 }
 
 close_src_loopdev () {
-	if [ -n "$VERBOSE" ]; then
-		echo "Unmounting source $SRC_BOOT_LABEL filesystem $SRC_MOUNT$BOOT_DEV_MOUNT."
-	fi
-	umount "$SRC_MOUNT$BOOT_DEV_MOUNT"
-	if [ -n "$VERBOSE" ]; then
-		echo "Unmounting source $SRC_ROOT_LABEL filesystem $SRC_MOUNT."
+	if [ -z "$NO_BOOT_PARTITION" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Unmounting source $SRC_BOOT_LABEL filesystem $SRC_MOUNT$BOOT_DEV_MOUNT."
+		fi
+		umount "$SRC_MOUNT$BOOT_DEV_MOUNT"
+		if [ -n "$VERBOSE" ]; then
+			echo "Unmounting source $SRC_ROOT_LABEL filesystem $SRC_MOUNT."
+		fi
 	fi
 	umount "$SRC_MOUNT"
 	if [ -n "$VERBOSE" ]; then
@@ -311,15 +325,17 @@ enable_ld_preload () {
 
 setup_mounts () {
 	# be sure to work with UUID= and PARTUUID= and LABEL= forms; also, work with /boot and /boot/firmware
-	if grep -q 'UUID=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
-		echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
-		sed -i 's/^.*UUID=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
-			&& echo "OK" || echo "ERROR"
-	elif grep -q 'LABEL=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
-		if ! grep -q 'LABEL='"$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	if [ -z "$NO_BOOT_PARTITION" ]; then
+		if grep -q 'UUID=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 			echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
-			sed -i 's/^.*LABEL=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
+			sed -i 's/^.*UUID=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
+		elif grep -q 'LABEL=[^ ]* */boot' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+			if ! grep -q 'LABEL='"$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+				echo -n "Changing /boot mount in $SRC_MOUNT/etc/fstab to use label $BOOT_DEV_LABEL... "
+				sed -i 's/^.*LABEL=[^ ]* *\/boot/LABEL='"$BOOT_DEV_LABEL"' \/boot/' $SRC_MOUNT/etc/fstab \
+					&& echo "OK" || echo "ERROR"
+			fi
 		fi
 	fi
 	if grep -q 'UUID=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
@@ -346,15 +362,17 @@ setup_mounts () {
 			&& echo "OK" || echo "ERROR"
 	fi
 	
-	# make sure boot mount options match desired + errors=remount-ro
-	local fsopts="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f4)"
-	local fstype="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
-	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
-		echo -n "Changing /boot fs options in $SRC_MOUNT/etc/fstab to ${DEST_MNT_OPTS[$fstype]}... "
-		sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"' [^ ]* [^ ]*\) [^ ]* /\1 '"${DEST_MNT_OPTS[$fstype]}"',errors=remount-ro /' $SRC_MOUNT/etc/fstab \
-			&& echo "OK" || echo "ERROR"
+	if [ -z "$NO_BOOT_PARTITION" ]; then
+		# make sure boot mount options match desired + errors=remount-ro
+		local fsopts="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f4)"
+		local fstype="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
+		if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
+			echo -n "Changing /boot fs options in $SRC_MOUNT/etc/fstab to ${DEST_MNT_OPTS[$fstype]}... "
+			sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"' [^ ]* [^ ]*\) [^ ]* /\1 '"${DEST_MNT_OPTS[$fstype]}"',errors=remount-ro /' $SRC_MOUNT/etc/fstab \
+				&& echo "OK" || echo "ERROR"
+		fi
 	fi
-	
+		
 	# make sure root mount options match desired
 	fsopts="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f4)"
 	fstype="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
@@ -640,10 +658,16 @@ copy_img () {
 	fi
 
 	copy_bootloader "$out_loopdev"
-	copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT$BOOT_DEV_MOUNT"
+	if [ -z "$NO_BOOT_PARTITION" ]; then
+		copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT$BOOT_DEV_MOUNT"
+	fi
 	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" "SOLARNODE" "$SRC_MOUNT"
 
-	setup_boot_cmdline "$out_loopdev${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$LAST_PARTUUID"
+	if [ -z "$NO_BOOT_PARTITION" ]; then
+		setup_boot_cmdline "$out_loopdev${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$LAST_PARTUUID"
+	else
+		setup_boot_cmdline "$out_loopdev${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "$LAST_PARTUUID"
+	fi
 
 	if [ -n "$VERBOSE" ]; then
 		echo "Closing output image loop device $out_loopdev."
