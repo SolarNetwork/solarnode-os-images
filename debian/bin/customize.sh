@@ -340,12 +340,12 @@ setup_mounts () {
 	fi
 	if grep -q 'UUID=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
-		sed -i 's/^.*UUID=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
+		sed -i 's/^.*UUID=[^ 	]*[ 	]*\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
 	elif grep -q 'LABEL=[^ ]* */ ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		if ! grep -q 'LABEL='"$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 			echo -n "Changing / mount in $SRC_MOUNT/etc/fstab to use label $ROOT_DEV_LABEL... "
-			sed -i 's/^.*LABEL=[^ ]* *\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
+			sed -i 's/^.*LABEL=[^ 	]*[ 	]*\/ /LABEL='"$ROOT_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
@@ -358,7 +358,7 @@ setup_mounts () {
 	# make sure our root mount fstype matches final output fstype
 	if ! grep -q 'LABEL='"$ROOT_DEV_LABEL"' \/ '"${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Changing / fstype in $SRC_MOUNT/etc/fstab to ${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}... "
-		sed -i 's/LABEL='"$ROOT_DEV_LABEL"' \/ [^ ]* /LABEL='"$ROOT_DEV_LABEL"' \/ '"${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}"' /' $SRC_MOUNT/etc/fstab \
+		sed -i 's/LABEL='"$ROOT_DEV_LABEL"'[ 	]\/[ 	][^ 	]* /LABEL='"$ROOT_DEV_LABEL"' \/ '"${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}"' /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
 	fi
 	
@@ -368,7 +368,7 @@ setup_mounts () {
 		local fstype="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
 		if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
 			echo -n "Changing /boot fs options in $SRC_MOUNT/etc/fstab to ${DEST_MNT_OPTS[$fstype]}... "
-			sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"' [^ ]* [^ ]*\) [^ ]* /\1 '"${DEST_MNT_OPTS[$fstype]}"',errors=remount-ro /' $SRC_MOUNT/etc/fstab \
+			sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}"',errors=remount-ro /' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
@@ -378,7 +378,7 @@ setup_mounts () {
 	fstype="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |cut -d' ' -f3)"
 	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
 		echo -n "Changing / fs options in $SRC_MOUNT/etc/fstab to ${DEST_MNT_OPTS[$fstype]}... "
-		sed -i 's/\(LABEL='"$ROOT_DEV_LABEL"' [^ ]* [^ ]*\) [^ ]* /\1 '"${DEST_MNT_OPTS[$fstype]}"' /' $SRC_MOUNT/etc/fstab \
+		sed -i 's/\(LABEL='"$ROOT_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}"' /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
 	fi
 }
