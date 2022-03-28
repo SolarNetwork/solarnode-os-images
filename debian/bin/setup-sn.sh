@@ -632,6 +632,16 @@ append_boot_cmdline () {
 setup_boot_cmdline () {
 	append_boot_cmdline 'logo.nologo'
 	append_boot_cmdline 'quiet'
+	
+	# remove upstream init if provided
+	if grep -q 'init=' $BOOT_MOUNT/cmdline.txt; then
+		echo -n "Removing init= from $BOOT_MOUNT/cmdline.txt... "
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			sed -i 's/init=[^ ][^ ]*[ 	]//' $BOOT_MOUNT/cmdline.txt && echo "OK" || echo "ERROR"
+		fi
+	fi
 }
 
 setup_ssh () {
