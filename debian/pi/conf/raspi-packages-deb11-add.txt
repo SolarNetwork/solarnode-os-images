@@ -1,0 +1,15 @@
+iw
+mbpoll
+ttf-bitstream-vera
+openjdk-11-jre-headless
+sn-nftables
+sn-osstat
+sn-pi
+sn-solarpkg
+sn-solarssh
+sn-system
+sn-wifi
+tmux
+yasdishell
+solarnode-base
+solarnode-app-core

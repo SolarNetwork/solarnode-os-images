@@ -136,7 +136,6 @@ libldap-2.4-2
 liblocale-gettext-perl
 liblz4-1
 liblzma5
-liblzo2-2
 libmd0
 libmnl0
 libmodbus5
