@@ -570,7 +570,9 @@ copy_part () {
 	if [ -n "$VERBOSE" ]; then
 		echo "Copying files from $src to $tmp_mount..."
 	fi
-	rsync -aHWXhx ${VERBOSE//TRUE/--info=progress2,stats1} "$src"/ "$tmp_mount"/
+	if ! rsync -aHWXhx ${VERBOSE//TRUE/--info=progress2,stats1} "$src"/ "$tmp_mount"/; then
+		ERR="Error copying $label from $src to $tmp_mount"
+	fi
 	umount "$tmp_mount"
 	rmdir "$tmp_mount"
 }
@@ -664,14 +666,16 @@ copy_img () {
 	if [ -z "$NO_BOOT_PARTITION" ]; then
 		copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT$BOOT_DEV_MOUNT"
 	fi
-	copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" "SOLARNODE" "$SRC_MOUNT"
-
-	if [ -z "$NO_BOOT_PARTITION" ]; then
-		setup_boot_cmdline "$out_loopdev${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$LAST_PARTUUID"
-	else
-		setup_boot_cmdline "$out_loopdev${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "$LAST_PARTUUID"
+	if [ -z "$ERR" ]; then
+		copy_part "${out_loopdev}${SOLARNODE_PART##$LOOPDEV}" "${DEST_ROOT_FSTYPE:-${FSTYPE_SOLARNODE}}" "SOLARNODE" "$SRC_MOUNT"
+	
+		if [ -z "$NO_BOOT_PARTITION" ]; then
+			setup_boot_cmdline "$out_loopdev${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$LAST_PARTUUID"
+		else
+			setup_boot_cmdline "$out_loopdev${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "$LAST_PARTUUID"
+		fi
 	fi
-
+	
 	if [ -n "$VERBOSE" ]; then
 		echo "Closing output image loop device $out_loopdev."
 	fi
@@ -679,35 +683,41 @@ copy_img () {
 
 	close_src_loopdev
 	
-	if [ -n "$VERBOSE" ]; then
-	       echo "Customized image complete: $out_img"
-	fi
-	if [ -n "$DEST_PATH" ]; then
-		mv "$out_img" "$DEST_PATH"
-		out_img="$DEST_PATH"
-	fi
+	if [ -z "$ERR" ]; then
+		if [ -n "$VERBOSE" ]; then
+			   echo "Customized image complete: $out_img"
+		fi
+		if [ -n "$DEST_PATH" ]; then
+			mv "$out_img" "$DEST_PATH"
+			out_img="$DEST_PATH"
+		fi
 
-	out_path=$(dirname $(readlink -f "$out_img"))
-	out_name=$(basename "${out_img%%.*}")
-	# cd into out_path so checksums don't contain paths
-	pushd "$out_path"
-	if [ -n "$VERBOSE" ]; then
-		echo "Checksumming image as ${out_path}/${out_name}.img.sha256..."
-	fi
-	sha256sum $(basename $out_img) >"${out_name}.img.sha256"
+		out_path=$(dirname $(readlink -f "$out_img"))
+		out_name=$(basename "${out_img%%.*}")
+		# cd into out_path so checksums don't contain paths
+		pushd "$out_path"
+		if [ -n "$VERBOSE" ]; then
+			echo "Checksumming image as ${out_path}/${out_name}.img.sha256..."
+		fi
+		sha256sum $(basename $out_img) >"${out_name}.img.sha256"
 	
-	if [ -n "$COMPRESS_DEST_IMAGE" ]; then
-		if [ -n "$VERBOSE" ]; then
-			echo "Compressing image as ${out_path}/${out_name}.img.xz..."
-		fi
-		xz -cv ${COMPRESS_DEST_OPTS} "$out_img" >"${out_name}.img.xz"
+		if [ -n "$COMPRESS_DEST_IMAGE" ]; then
+			if [ -n "$VERBOSE" ]; then
+				echo "Compressing image as ${out_path}/${out_name}.img.xz..."
+			fi
+			xz -cv ${COMPRESS_DEST_OPTS} "$out_img" >"${out_name}.img.xz"
 
-		if [ -n "$VERBOSE" ]; then
-			echo "Checksumming compressed image as ${out_name}.img.xz.sha256..."
+			if [ -n "$VERBOSE" ]; then
+				echo "Checksumming compressed image as ${out_name}.img.xz.sha256..."
+			fi
+			sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
 		fi
-		sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
+		popd
+	else
+		echo "!!!"
+		echo "!!! $ERR"
+		echo "!!!"
 	fi
-	popd
 }
 
 copy_src_img
