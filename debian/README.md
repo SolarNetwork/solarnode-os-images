@@ -10,10 +10,20 @@ based operating system image and turning it into SolarNodeOS. It relies on `syst
 configure the operating system. Its job is just to create a temporary container out of the 
 upstream image and then run some other "setup" script within the container to do the actual
 work of customizing the OS. When the setup script is complete, it will stop the container and
-create a new image file out of it.
+create a new image file out of it. The [setup-sn.sh](#setup-script) script is the one used to turn
+upstream OS images into SolarNodeOS images.
+
+The `customize.sh` script can also resize the output image and even change the filesystem type, for
+example change the upstream `ext4` filesystem into `btrfs`.
 
 For example use, see the README files in the various device-specific directories under this one,
 such as the [Raspberry Pi](pi/#setup-script).
+
+## Customizing SolarNodeOS images
+
+The [bin/customize.sh](bin/customize.sh) script is also a handy way to customize SolarNodeOS images
+into vendor-specific SolarNodeOS variants. Instead of running the [setup-sn.sh](#setup-script) "setup"
+script, you provide your own.
 
 ## Requirements
 

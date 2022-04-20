@@ -12,3 +12,4 @@ sn-wifi
 yasdishell
 solarnode-base
 solarnode-app-core
+solarnode-app-db-h2

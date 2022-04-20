@@ -1,4 +1,5 @@
 btrfs-progs
+iw
 mbpoll
 ttf-bitstream-vera
 openjdk-11-jre-headless
@@ -13,3 +14,4 @@ tmux
 yasdishell
 solarnode-base
 solarnode-app-core
+solarnode-app-db-h2

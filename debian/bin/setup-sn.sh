@@ -17,6 +17,7 @@ INPUT_DIR="/tmp/overlay"
 PKG_KEEP="conf/setup-packages-keep.txt"
 PKG_ADD="conf/setup-packages-add.txt"
 PKG_ADD_EARLY="conf/setup-packages-add-early.txt"
+PKG_ADD_LATE=""
 PKG_DEL_LATE="conf/setup-packages-del-late.txt"
 PI_USER="pi"
 RELEASE_NAME="SolarNodeOS"
@@ -41,6 +42,7 @@ Usage: $0 <arguments>
 Setup script for a minimal SolarNode OS based on an upstream OS.
 
 Arguments:
+ -A <package list file> - path to list of packages to add late in script
  -a <board>             - the Armbian board being set up; defaults to nanopiair
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot mount>        - the boot mount path; defaults to /boot
@@ -84,8 +86,9 @@ Arguments:
 EOF
 }
 
-while getopts ":a:B:b:e:Eh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
+while getopts ":A:a:B:b:e:Eh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 	case $opt in
+		A) PKG_ADD_LATE="${OPTARG}";;
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
 		b) BOOT_MOUNT="${OPTARG}";;
@@ -158,7 +161,7 @@ pkgs_install () {
 	if [ -n "$DRY_RUN" ]; then
 		echo "DRY RUN"
 	else
-		if ! apt-get install -qy \
+		if ! apt-get --reinstall install -qy \
 				-o Dpkg::Options::="--force-confdef" \
 				-o Dpkg::Options::="--force-confnew" \
 				${apt_proxy} \
@@ -202,7 +205,12 @@ pkg_remove () {
 # remove package if installed
 pkg_autoremove () {
 	if [ -z "$DRY_RUN" ]; then
-		apt-get -qy autoremove --purge $1 >>$LOG 2>>$ERR_LOG
+		echo -n "Removing auto-installed packages no longer needed... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			apt-get -qy autoremove --purge $1 >>$LOG 2>>$ERR_LOG && echo "OK"
+		fi
 	fi
 }
 
@@ -509,10 +517,18 @@ setup_software_late () {
 		done < "$INPUT_DIR/$PKG_DEL_LATE"
 	fi
 
-	if [ -n "$VERBOSE" ]; then
-		echo "Removing packages automatically installed but no longer needed."
-	fi
 	pkg_autoremove
+	
+	if [ -n "$PKG_ADD_LATE" -a -e "$INPUT_DIR/$PKG_ADD_LATE" ]; then
+		local to_add=""
+		while IFS= read -r line; do
+			to_add="$to_add $line"
+		done < "$INPUT_DIR/$PKG_ADD_LATE"
+		if [ -n "$to_add" ]; then
+			pkgs_install $to_add
+		fi
+	fi
+	
 	if [ -z "$DRY_RUN" ]; then
 		apt-get clean
 	fi
@@ -632,6 +648,16 @@ append_boot_cmdline () {
 setup_boot_cmdline () {
 	append_boot_cmdline 'logo.nologo'
 	append_boot_cmdline 'quiet'
+	
+	# remove upstream init if provided
+	if grep -q 'init=' $BOOT_MOUNT/cmdline.txt; then
+		echo -n "Removing init= from $BOOT_MOUNT/cmdline.txt... "
+		if [ -n "$DRY_RUN" ]; then
+			echo 'DRY RUN'
+		else
+			sed -i 's/init=[^ ][^ ]*[ 	]//' $BOOT_MOUNT/cmdline.txt && echo "OK" || echo "ERROR"
+		fi
+	fi
 }
 
 setup_ssh () {

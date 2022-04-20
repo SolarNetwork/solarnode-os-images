@@ -1,9 +1,7 @@
-libmodbus
+iw
 mbpoll
 ttf-bitstream-vera
 openjdk-11-jre-headless
-wpasupplicant
-yasdishell
 sn-nftables
 sn-osstat
 sn-pi
@@ -11,6 +9,8 @@ sn-solarpkg
 sn-solarssh
 sn-system
 sn-wifi
+tmux
+yasdishell
 solarnode-base
 solarnode-app-core
 solarnode-app-db-h2
