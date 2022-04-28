@@ -223,7 +223,7 @@ setup_src_loopdev () {
 		fi
 	fi
 	
-	if [ -n "$SRC_BOOT_PARTNUM" ]; then
+	if [ -n "$SRC_ROOT_PARTNUM" ]; then
 		SOLARNODE_PART=$(lsblk -npo kname $LOOPDEV |tail +$((1+$SRC_ROOT_PARTNUM)) |head -n 1)
 	else
 		SOLARNODE_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_ROOT_LABEL |cut -d' ' -f 1)
@@ -581,7 +581,9 @@ setup_boot_cmdline () {
 	local part="$1"
 	local fstype="$2"
 	local rootpartuuid="$3"
+	local subdir="$4"
 	local tmp_mount=$(mktemp -d -t sn-XXXXX)
+	local tmp_root="$tmp_mount"
 	if [ -n "$VERBOSE" ]; then
 		echo "Mounting $part on $tmp_mount with options ${MNT_OPTS[$fstype]}."
 	fi
@@ -589,33 +591,36 @@ setup_boot_cmdline () {
 		echo "Error: failed to mount $part on $tmp_mount."
 		exit 1
 	fi
-	if [ -e "$tmp_mount/cmdline.txt" ]; then
-		if grep ' root=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
-			echo -n "Changing root to PARTUUID=$rootpartuuid in $tmp_mount/cmdline.txt... "
-			sed -i 's/root=[^ ]*/root=PARTUUID='"$rootpartuuid"'/' $tmp_mount/cmdline.txt \
+	if [ -n "$subdir" ]; then
+		tmp_root="$tmp_root/$subdir"
+	fi
+	if [ -e "$tmp_root/cmdline.txt" ]; then
+		if grep ' root=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Changing root to PARTUUID=$rootpartuuid in $tmp_root/cmdline.txt... "
+			sed -i 's/root=[^ ]*/root=PARTUUID='"$rootpartuuid"'/' $tmp_root/cmdline.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
 		if [ -n "$DEST_ROOT_FSTYPE" ]; then
-			if grep ' rootfstype=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
-				echo -n "Changing rootfstype to $DEST_ROOT_FSTYPE in $tmp_mount/cmdline.txt... "
-				sed -i 's/rootfstype=[^ ]*/rootfstype='"$DEST_ROOT_FSTYPE"'/' $tmp_mount/cmdline.txt \
+			if grep ' rootfstype=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
+				echo -n "Changing rootfstype to $DEST_ROOT_FSTYPE in $tmp_root/cmdline.txt... "
+				sed -i 's/rootfstype=[^ ]*/rootfstype='"$DEST_ROOT_FSTYPE"'/' $tmp_root/cmdline.txt \
 					&& echo "OK" || echo "ERROR"
 			fi
 		fi
-		if grep ' init=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
-			echo -n "Removing init from $tmp_mount/cmdline.txt... "
-			sed -i 's/ init=[^ ]*//' $tmp_mount/cmdline.txt \
+		if grep ' init=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Removing init from $tmp_root/cmdline.txt... "
+			sed -i 's/ init=[^ ]*//' $tmp_root/cmdline.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
-		if ! grep ' fsck.repair=' "$tmp_mount/cmdline.txt" >/dev/null 2>&1; then
-			echo -n "Adding fsck.repair=yes to $tmp_mount/cmdline.txt... "
-			sed -i '1s/$/ fsck.repair/' $tmp_mount/cmdline.txt \
+		if ! grep ' fsck.repair=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Adding fsck.repair=yes to $tmp_root/cmdline.txt... "
+			sed -i '1s/$/ fsck.repair/' $tmp_root/cmdline.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
-	elif [ -e "$tmp_mount/armbianEnv.txt" ]; then
-		if grep 'rootdev=' "$tmp_mount/armbianEnv.txt" >/dev/null 2>&1; then
-			echo -n "Changing rootdev to PARTUUID=$rootpartuuid in $tmp_mount/armbianEnv.txt... "
-			sed -i 's/rootdev=[^ ]*/rootdev=PARTUUID='"$rootpartuuid"'/' $tmp_mount/armbianEnv.txt \
+	elif [ -e "$tmp_root/armbianEnv.txt" ]; then
+		if grep 'rootdev=' "$tmp_root/armbianEnv.txt" >/dev/null 2>&1; then
+			echo -n "Changing rootdev to PARTUUID=$rootpartuuid in $tmp_root/armbianEnv.txt... "
+			sed -i 's/rootdev=[^ ]*/rootdev=PARTUUID='"$rootpartuuid"'/' $tmp_root/armbianEnv.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
@@ -672,7 +677,7 @@ copy_img () {
 		if [ -z "$NO_BOOT_PARTITION" ]; then
 			setup_boot_cmdline "$out_loopdev${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "$LAST_PARTUUID"
 		else
-			setup_boot_cmdline "$out_loopdev${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "$LAST_PARTUUID"
+			setup_boot_cmdline "$out_loopdev${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "$LAST_PARTUUID" "boot"
 		fi
 	fi
 	
