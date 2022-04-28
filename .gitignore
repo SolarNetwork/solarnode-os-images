@@ -2,4 +2,6 @@
 *.img.xz
 *.swp
 Base-images
+setup-sn.err
+setup-sn.log
 tmp

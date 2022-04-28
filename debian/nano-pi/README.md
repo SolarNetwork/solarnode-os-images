@@ -105,5 +105,20 @@ $ vagrant reload
 $ vagrant ssh -c 'sudo BOARD=nanopiair armbian/userpatches/overlay/sn-nanopiair/bin/armbian-build.sh'
 ```
 
+## Customize script
+
+Here's an example of using the `customize.sh` script to create SolarNodeOS 11 from a standard
+Armbian (bullseye) OS image:
+
+```
+sudo bash ~/solarnode-os-images/debian/bin/customize.sh -v -z \
+        -B -n 1 -e 500 -E 756 -c \
+        -a '-a nanopiair -V nanopiair -M 11 -q bullseye -m -w -Q -K conf/packages-deb11-add.txt -k conf/packages-deb11-keep.txt -o 172.16.159.143:3142' \
+        -o /var/tmp/solarnodeos-deb11-nanopiair-1GB-$(date '+%Y%m%d').img \
+        ~/Armbian_22.05.0-trunk_Nanopiair_bullseye_current_5.15.35_minimal.img.xz \
+        ~/git/solarnode-os-images/debian/bin/setup-sn.sh \
+        ~/solarnode-os-images/debian/nano-pi:/tmp/overlay
+```
+
   [1]: https://friendlyarm.com/
   [2]: http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Air
