@@ -20,27 +20,35 @@ MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=60,compress-force=zstd"
 MNT_OPTS[ext4]="defaults,commit=60"
 MNT_OPTS[vfat]="defaults"
 declare -A DEST_MNT_OPTS
-DEST_MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=60,compress=zstd"
-DEST_MNT_OPTS[ext4]="defaults,noatime,commit=60"
-DEST_MNT_OPTS[vfat]="defaults"
+DEST_MNT_OPTS[btrfs]="defaults,noatime,nodiratime,commit=60,compress=zstd,errors=remount-ro"
+DEST_MNT_OPTS[ext4]="defaults,noatime,commit=60,errors=remount-ro"
+DEST_MNT_OPTS[vfat]="defaults,errors=remount-ro"
 
 SRC_BOOT_LABEL="SOLARBOOT"
 SRC_BOOT_PARTNUM=""
 SRC_ROOT_LABEL="SOLARNODE"
 SRC_ROOT_PARTNUM=""
+SRC_DATA_LABEL="SOLARDATA"
+SRC_DATA_PARTNUM=""
 DEST_ROOT_FSTYPE=""
+ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
 BOOT_DEV_LABEL="${BOOT_DEV_LABEL:-SOLARBOOT}"
 BOOT_DEV_MOUNT="${BOOT_DEV_MOUNT:-/boot}"
-ROOT_DEV_LABEL="${ROOT_DEV_LABEL:-SOLARNODE}"
+DATA_DEV_LABEL="${DATA_DEV_LABEL:-SOLARDATA}"
+DATA_DEV_MOUNT="${DATA_DEV_MOUNT:-/mnt/data}"
+
+RO_DEST_FSOPTS=""
 
 CLEAN_IMAGE=""
 COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0"
 DEST_PATH=""
+DEST_DATA_FSTYPE=""
 EXPAND_SOLARNODE_FS=""
 INTERACTIVE_MODE=""
 KEEP_SSH=""
 NO_BOOT_PARTITION=""
+DATA_PARTITION_SIZE=""
 SCRIPT_ARGS=""
 SHRINK_SOLARNODE_FS=""
 SRC_IMG=""
@@ -54,17 +62,22 @@ Usage: $0 <arguments> src script [bind-mounts]
 
  -a <args>        - extra argumnets to pass to the script
  -B               - disable separate boot partition (single root partition)
+ -d <size MB>     - include a SOLARDATA partition of this size, in MB
+ -C               - add 'ro' option to SOLARBOOT and SOLARNODE filesystem mount options
  -c               - clean out log files, temp files, SSH host keys from final
                     image
  -E <size MB>     - shrink the output SOLARNODE partition by this amount, in MB
  -e <size MB>     - expand the input SOLARNODE partition by this amount, in MB
  -i               - interactive mode; run without script
+ -M <boot mount>  - the boot partition mount directory; defaults to /boot
  -N <boot part #> - the source boot partition number, instead of using label
  -n <root part #> - the source root partition number, instead of using label
  -P <boot label>  - the source boot partition label; defaults to SOLARBOOT
  -p <root label>  - the source root partition label; defaults to SOLARNODE
- -M <boot mount>  - the boot partition mount directory; defaults to /boot
+ -Q <data part #> - the source data partition number, instead of using label
+ -q <data label>  - the source data partition label; defaults to SOLARDATA
  -o <out name>    - the output name for the final image
+ -R <fstype>      - use specific data filesystem type in the destination image
  -r <fstype>      - use specific root filesystem type in the destination image
  -S               - if -c set, keep SSH host keys
  -v               - increase verbosity of tasks
@@ -94,11 +107,13 @@ image as 'customize.sh'):
 EOF
 }
 
-while getopts ":a:BcE:e:io:M:N:n:P:p:r:SvZ:z" opt; do
+while getopts ":a:BcCd:E:e:io:M:N:n:P:p:Q:q:r:R:SvZ:z" opt; do
 	case $opt in
 		a) SCRIPT_ARGS="${OPTARG}";;
 		B) NO_BOOT_PARTITION="TRUE";;
+		C) RO_DEST_FSOPTS=',ro';;
 		c) CLEAN_IMAGE="TRUE";;
+		d) DATA_PARTITION_SIZE="${OPTARG}";;
 		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		i) INTERACTIVE_MODE="TRUE";;
@@ -108,6 +123,9 @@ while getopts ":a:BcE:e:io:M:N:n:P:p:r:SvZ:z" opt; do
 		n) SRC_ROOT_PARTNUM="${OPTARG}";;
 		P) SRC_BOOT_LABEL="${OPTARG}";;
 		p) SRC_ROOT_LABEL="${OPTARG}";;
+		Q) SRC_DATA_PARTNUM="${OPTARG}";;
+		q) SRC_DATA_LABEL="${OPTARG}";;
+		R) DEST_DATA_FSTYPE="${OPTARG}";;
 		r) DEST_ROOT_FSTYPE="${OPTARG}";;
 		S) KEEP_SSH="TRUE";;
 		v) VERBOSE="TRUE";;
@@ -161,9 +179,11 @@ BIND_MOUNTS="$3"
 
 FSTYPE_SOLARNODE=""
 FSTYPE_SOLARBOOT=""
+FSTYPE_SOLARDATA=""
 LOOPDEV=""
 SOLARBOOT_PART=""
 SOLARNODE_PART=""
+SOLARDATA_PART=""
 SRC_IMG=$(mktemp -t img-XXXXX)
 SRC_MOUNT=$(mktemp -d -t sn-XXXXX)
 SCRIPT_DIR=""
@@ -181,11 +201,12 @@ copy_src_img () {
 		echo "Error: unable to copy $IMG to $SRC_IMG"
 		exit 1
 	fi
-	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
-		if ! truncate -s +${EXPAND_SOLARNODE_FS}M "$SRC_IMG"; then
-			echo "Error: unable to expand $SRC_IMG by ${EXPAND_SOLARNODE_FS}MB."
+	local expand_mb=$((${EXPAND_SOLARNODE_FS:-0} + ${DATA_PARTITION_SIZE:-0}))
+	if [ $expand_mb -gt 0 ]; then
+		if ! truncate -s +${expand_mb}M "$SRC_IMG"; then
+			echo "Error: unable to expand $SRC_IMG by ${expand_mb}MB."
 		elif [ -n "$VERBOSE" ]; then
-			echo "Expanded $SRC_IMG by ${EXPAND_SOLARNODE_FS}MB."
+			echo "Expanded $SRC_IMG by ${expand_mb}MB."
 		fi
 	fi
 }
@@ -208,6 +229,11 @@ setup_src_loopdev () {
 	
 	# seems system needs a little rest before labels are available in lsblk?
 	sleep 1
+	
+	local part_count="$(($(lsblk -npo kname $LOOPDEV|wc -l) - 1))"
+	if [ -n "$VERBOSE" ]; then
+		echo "Discovered $part_count partitions in source image."
+	fi
 
 	if [ -z "$NO_BOOT_PARTITION" ]; then
 		if [ -n "$SRC_BOOT_PARTNUM" ]; then
@@ -236,12 +262,67 @@ setup_src_loopdev () {
 	fi
 
 	if [ -n "$EXPAND_SOLARNODE_FS" ]; then
-		local part_num=$(sfdisk -ql "$LOOPDEV" -o Device |tail +2 |awk '{print NR,$0}' |grep "$SOLARNODE_PART" |cut -d' ' -f1)
+		local part_num=$(sfdisk -ql "$LOOPDEV" -o Device |tail -n +2 |awk '{print NR,$0}' |grep "$SOLARNODE_PART" |cut -d' ' -f1)
+		
+		# if not the last partition, delete all later partitions so we can expand the SOLARNODE one
+		if [ $part_num -lt $part_count ]; then
+			local i=0;
+			for i in $(seq $part_count -1 $((part_num + 1))); do 
+				if [ -n "$VERBOSE" ]; then
+					echo "Moving source partition $i ${EXPAND_SOLARNODE_FS} MB"
+				fi
+				echo "+${EXPAND_SOLARNODE_FS}M," |sfdisk --move-data ${LOOPDEV} -N${i} --no-reread -q
+			done
+		fi
+	
 		if [ -n "$VERBOSE" ]; then
 			echo "Expanding partition $part_num on ${LOOPDEV} by $EXPAND_SOLARNODE_FS MB."
 		fi
 		echo ",+${EXPAND_SOLARNODE_FS}M" |sfdisk ${LOOPDEV} -N${part_num} --no-reread -q
 		partx -u ${LOOPDEV}
+	fi
+
+	if [ -n "$DATA_PARTITION_SIZE" ]; then
+		if [ -n "$SRC_DATA_PARTNUM" ]; then
+			SOLARDATA_PART=$(lsblk -npo kname $LOOPDEV |tail -n +$((1+$SRC_DATA_PARTNUM)) |head -n 1)
+		else
+			SOLARDATA_PART=$(lsblk -npo kname,label $LOOPDEV |grep -i $SRC_DATA_LABEL |cut -d' ' -f 1)
+		fi
+		local created_data_part=""
+		if [ -z "$SOLARDATA_PART" ]; then
+			# create SOLARDATA partition now
+			local data_part_start=$(sfdisk -ql $LOOPDEV -o Start,Sectors |tail -1 |awk '{print $1 + $2;}')
+			if [ -n "$VERBOSE" ]; then
+				echo "Adding SOLARDATA partition starting at $data_part_start"
+			fi
+			if ! echo "${data_part_start}," | sfdisk -q $LOOPDEV --append; then
+				echo "Failed to add new SOLARDATA partition starting at $data_part_start"
+				exit 1
+			fi
+			sfdisk -q $LOOPDEV --reorder
+			sleep 1
+			partx -u ${LOOPDEV}
+			SOLARDATA_PART=$(lsblk -npo kname $LOOPDEV |tail -1)
+			if [ -n "$VERBOSE" ]; then
+				echo "Created source SOLARDATA partition ${SOLARDATA_PART}."
+			fi
+			local data_fstype="${DEST_DATA_FSTYPE:-ext4}"
+			if [ -n "$VERBOSE" ]; then
+				echo "Creating $SOLARDATA_PART $data_fstype filesystem with options ${FS_OPTS[$data_fstype]}."
+			fi
+			if ! mkfs.$data_fstype ${FS_OPTS[$data_fstype]} "$SOLARDATA_PART"; then
+				echo "Error: failed to create $SOLARDATA_PART $data_fstype filesystem."
+				exit 1
+			fi
+			case $data_fstype in
+				# btrfs HANDLE AFTER MOUNT BELOW
+				ext*)  e2label "$SOLARDATA_PART" "$SRC_DATA_LABEL";;
+				vfat)  fatlabel "$SOLARDATA_PART" "$SRC_DATA_LABEL";;
+			esac
+			created_data_part='TRUE'
+		elif [ -n "$VERBOSE" ]; then
+			echo "Discovered source $SRC_DATA_LABEL partition ${SOLARDATA_PART}."
+		fi
 	fi
 
 	if ! mount "$SOLARNODE_PART" "$SRC_MOUNT"; then
@@ -287,17 +368,48 @@ setup_src_loopdev () {
 			echo "Discovered source $SRC_BOOT_LABEL filesystem type $FSTYPE_SOLARBOOT."
 		fi
 	fi
+	
+	if [ -n "$SOLARDATA_PART" ]; then
+		if [ ! -d "$SRC_MOUNT$DATA_DEV_MOUNT" ]; then
+			if ! mkdir -p "$SRC_MOUNT$DATA_DEV_MOUNT"; then
+				echo "Error: unable to create $SRC_MOUNT$DATA_DEV_MOUNT directory to mount $SOLARDATA_PART."
+				exit 1
+			fi
+		fi
+		if ! mount "$SOLARDATA_PART" "$SRC_MOUNT$DATA_DEV_MOUNT"; then
+			echo "Error: unable to mount $SOLARDATA_PART on $SRC_MOUNT$DATA_DEV_MOUNT."
+			exit 1
+		elif [ -n "$VERBOSE" ]; then
+			echo "Mounted source $SRC_DATA_LABEL filesystem on $SRC_MOUNT$DATA_DEV_MOUNT."
+		fi
+		if [ -n "$created_data_part" -a "$data_fstype" = 'btrfs' ]; then
+			btrfs filesystem label "$SRC_MOUNT$DATA_DEV_MOUNT" "SOLARDATA"
+		fi
+
+		FSTYPE_SOLARDATA=$(findmnt -f -n -o FSTYPE "$SOLARDATA_PART")
+		if [ -z "$FSTYPE_SOLARDATA" ]; then
+			echo "Error: $SRC_DATA_LABEL filesystem type not discovered."
+		elif [ -n "$VERBOSE" ]; then
+			echo "Discovered source $SRC_DATA_LABEL filesystem type $FSTYPE_SOLARDATA."
+		fi
+	fi
 }
 
 close_src_loopdev () {
 	if [ -z "$NO_BOOT_PARTITION" ]; then
 		if [ -n "$VERBOSE" ]; then
-			echo "Unmounting source $SRC_BOOT_LABEL filesystem $SRC_MOUNT$BOOT_DEV_MOUNT."
+			echo "Unmounting source $SRC_BOOT_LABEL filesystem ${SRC_MOUNT}${BOOT_DEV_MOUNT}."
 		fi
-		umount "$SRC_MOUNT$BOOT_DEV_MOUNT"
+		umount "${SRC_MOUNT}${BOOT_DEV_MOUNT}"
+	fi
+	if [ -n "$SOLARDATA_PART" ]; then
 		if [ -n "$VERBOSE" ]; then
-			echo "Unmounting source $SRC_ROOT_LABEL filesystem $SRC_MOUNT."
+			echo "Unmounting source $SRC_DATA_LABEL filesystem ${SRC_MOUNT}${DATA_DEV_MOUNT}."
 		fi
+		umount "${SRC_MOUNT}${DATA_DEV_MOUNT}"
+	fi
+	if [ -n "$VERBOSE" ]; then
+		echo "Unmounting source $SRC_ROOT_LABEL filesystem $SRC_MOUNT."
 	fi
 	umount "$SRC_MOUNT"
 	if [ -n "$VERBOSE" ]; then
@@ -349,6 +461,19 @@ setup_mounts () {
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
+	if [ -n "$SOLARDATA_PART" ]; then
+		if grep -q "$DATA_DEV_MOUNT" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+			if ! grep -q 'LABEL='"$DATA_DEV_LABEL" $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+				echo -n "Changing $DATA_DEV_MOUNT mount in $SRC_MOUNT/etc/fstab to use label $DATA_DEV_LABEL... "
+				sed -i 's/^.*LABEL=[^ 	]*[ 	]*\/ /LABEL='"$DATA_DEV_LABEL"' \/ /' $SRC_MOUNT/etc/fstab \
+					&& echo "OK" || echo "ERROR"
+			fi
+		else
+			echo -n "Adding $DATA_DEV_MOUNT mount in $SRC_MOUNT/etc/fstab... "
+			echo "LABEL=${DATA_DEV_LABEL} ${DATA_DEV_MOUNT} ${FSTYPE_SOLARDATA} ${DEST_MNT_OPTS[$FSTYPE_SOLARDATA]} 0 1" \
+				>>$SRC_MOUNT/etc/fstab && echo "OK" || echo "ERROR"
+		fi
+	fi
 	if ! grep -q '^tmpfs /run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Adding /run mount in $SRC_MOUNT/etc/fstab with explicit size... "
 		echo 'tmpfs /run tmpfs rw,nosuid,noexec,relatime,size=50%,mode=755 0 0' >>$SRC_MOUNT/etc/fstab \
@@ -369,20 +494,31 @@ setup_mounts () {
 		# make sure boot mount options match desired + errors=remount-ro
 		fsopts="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $4}')"
 		fstype="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $3}')"
-		if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
+		if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}" ]; then
 			echo -n "Changing /boot fs options in $SRC_MOUNT/etc/fstab from [$fsopts] to [${DEST_MNT_OPTS[$fstype]}]... "
-			sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}"',errors=remount-ro /' $SRC_MOUNT/etc/fstab \
+			sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}"' /' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
-		
+	
 	# make sure root mount options match desired
 	fsopts="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $4}')"
 	fstype="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $3}')"
-	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
+	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}" ]; then
 		echo -n "Changing / fs options in $SRC_MOUNT/etc/fstab from [$fsopts] to [${DEST_MNT_OPTS[$fstype]}]... "
-		sed -i 's/\(LABEL='"$ROOT_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}"' /' $SRC_MOUNT/etc/fstab \
+		sed -i 's/\(LABEL='"$ROOT_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}"' /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
+	fi
+
+	# make sure data mount options match desired
+	if [ -n "$SOLARDATA_PART" ]; then
+		fsopts="$(grep "LABEL=$DATA_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $4}')"
+		fstype="$(grep "LABEL=$DATA_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $3}')"
+		if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}" ]; then
+			echo -n "Changing $DATA_DEV_MOUNT fs options in $SRC_MOUNT/etc/fstab from [$fsopts] to [${DEST_MNT_OPTS[$fstype]}]... "
+			sed -i 's/\(LABEL='"$DATA_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}"' /' $SRC_MOUNT/etc/fstab \
+				&& echo "OK" || echo "ERROR"
+		fi
 	fi
 }
 
@@ -521,7 +657,7 @@ copy_bootloader () {
 	# note: following assumes MBR, with first 440 bytes the boot loader
 	local start_len="440"
 	local bl_offset="1"
-	local bl_len=$(echo "$(sfdisk -ql $dev -o Start |tail +2 |head -1) - $bl_offset" |bc)
+	local bl_len=$(echo "$(sfdisk -ql $dev -o Start |tail -n +2 |head -1) - $bl_offset" |bc)
 	if ! dd status=none if=$SRC_IMG of=$dev bs=$start_len count=1; then
 		echo "Error: problem copying MBR bootloader from $SRC_IMG to $dev."
 	elif [ -n "$VERBOSE" ]; then
@@ -631,18 +767,10 @@ setup_boot_cmdline () {
 copy_img () {
 	local size=$(wc -c <"$SRC_IMG")
 	local size_mb=$(echo "$size / 1024 / 1024" |bc)
-	local size_sector=""
-	local size_sector_in=""
-	if [ -n "$SHRINK_SOLARNODE_FS" ]; then
-		size_mb=$(echo "$size_mb - $SHRINK_SOLARNODE_FS" |bc)
-		if [ -n "$VERBOSE" ]; then
-			echo "Shrinking output image by $SHRINK_SOLARNODE_FS MB."
-		fi
-		local part_num=$(sfdisk -ql "$LOOPDEV" -o Device |tail +2 |awk '{print NR,$0}' \
-			|grep "${LOOPDEV}${SOLARNODE_PART##$LOOPDEV}" |cut -d' ' -f1)
-		size_sector_in=$(sfdisk -ql "$LOOPDEV" -o Sectors |tail +$((1 + $part_num)) |head -1)
-		size_sector=$(echo "$size_sector_in - $SHRINK_SOLARNODE_FS * 1024 * 1024 / 512" |bc)
-	fi
+	local part_count=0
+	local root_part_num=0
+	local shrink_size_sectors=0
+	
 	local out_img=$(mktemp -t img-XXXXX)
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating ${size_mb}MB output image $out_img."
@@ -657,14 +785,41 @@ copy_img () {
 	if [ -n "$VERBOSE" ]; then
 		echo "Opened output image loop device $out_loopdev."
 	fi
-	if [ -n "$size_sector" ]; then
-		if ! sfdisk -q -d "$LOOPDEV" |sed -e "s/size=.*$size_sector_in/size=$size_sector/" |sfdisk -q "$out_loopdev"; then
-			echo "Error copying partition table from $LOOPDEV to $outdev, shrunk from $size_sector_in to $size_sector sectors."
+	
+	if ! sfdisk -q -d "$LOOPDEV" |sfdisk -q "$out_loopdev"; then
+		echo "Error copying partition table from $LOOPDEV to $out_loopdev."
+		exit 1
+	fi
+	
+	if [ -n "$SHRINK_SOLARNODE_FS" ]; then
+		size_mb=$(echo "$size_mb - $SHRINK_SOLARNODE_FS" |bc)
+		part_count="$(($(lsblk -npo kname $LOOPDEV|wc -l) - 1))"
+		root_part_num=$(sfdisk -ql "$LOOPDEV" -o Device |tail -n +2 |awk '{print NR,$0}' \
+			|grep "${LOOPDEV}${SOLARNODE_PART##$LOOPDEV}" |cut -d' ' -f1)
+		shrink_size_sectors=$(echo "$SHRINK_SOLARNODE_FS * 1024 * 1024 / 512" |bc)
+
+		if [ -n "$VERBOSE" ]; then
+			echo "Shrinking output SOLARNODE partition by $SHRINK_SOLARNODE_FS MB to $size_mb MB."
+		fi
+		if ! echo ",-${SHRINK_SOLARNODE_FS}M" |sfdisk -q "$out_loopdev" -N $root_part_num; then
+			echo "Error shrinking $out_loopdev parition $root_part_num by $SHRINK_SOLARNODE_FS MB."
 			exit 1
 		fi
-	elif ! sfdisk -q -d "$LOOPDEV" |sfdisk -q "$out_loopdev"; then
-		echo "Error copying partition table from $LOOPDEV to $outdev."
-		exit 1
+		if [ $root_part_num -lt $part_count ]; then
+			# shift partitions
+			local i
+			for i in $(seq $((root_part_num + 1)) $part_count); do
+				local part_start=$(($(sfdisk -ql "$out_loopdev" -o Start |tail -n +$((i + 1)) |head -1) - shrink_size_sectors))
+				if [ -n "$VERBOSE" ]; then
+					echo "Shifting partition $i back by ${SHRINK_SOLARNODE_FS} MB to start at $part_start"
+				fi
+				if ! echo "${part_start}," |sfdisk -q "$out_loopdev" -N $i; then
+					echo "Error shifting $out_loopdev partition $i back by ${SHRINK_SOLARNODE_FS} MB"
+					exit 1
+				fi
+			done
+		fi
+		partx -u "$out_loopdev"
 	fi
 
 	copy_bootloader "$out_loopdev"
@@ -680,12 +835,22 @@ copy_img () {
 			setup_boot_cmdline "$out_loopdev${SOLARNODE_PART##$LOOPDEV}" "$FSTYPE_SOLARNODE" "$LAST_PARTUUID" "boot"
 		fi
 	fi
+	if [ -z "$ERR" -a -n "$SOLARDATA_PART" ]; then
+		copy_part "${out_loopdev}${SOLARDATA_PART##$LOOPDEV}" "${DEST_DATA_FSTYPE:-${FSTYPE_SOLARDATA}}" "SOLARDATA" "$SRC_MOUNT$DATA_DEV_MOUNT"
+	fi
 	
 	if [ -n "$VERBOSE" ]; then
 		echo "Closing output image loop device $out_loopdev."
 	fi
 	losetup -d "$out_loopdev"
-
+	
+	if [ -n "$SHRINK_SOLARNODE_FS" ]; then
+		if [ -n "$VERBOSE" ]; then
+			echo "Shrinking output image $out_img by $SHRINK_SOLARNODE_FS MB."
+		fi
+		truncate -s "-${SHRINK_SOLARNODE_FS}M" "$out_img"
+	fi
+	
 	close_src_loopdev
 	
 	if [ -z "$ERR" ]; then
