@@ -43,7 +43,7 @@ Setup script for a minimal SolarNode OS based on an upstream OS.
 
 Arguments:
  -A <package list file> - path to list of packages to add late in script
- -a <board>             - the Armbian board being set up; defaults to nanopiair
+ -a <board>             - the board being set up; defaults to raspberrypi
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot mount>        - the boot mount path; defaults to /boot
  -d <package list file> - path to list of packages to delete late in script;
