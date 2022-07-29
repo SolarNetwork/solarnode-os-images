@@ -340,6 +340,20 @@ setup_user () {
 	fi
 }
 
+remove_apt_repos () {
+	for n in "$@"; do
+		if [ -e /etc/apt/sources.list.d/$n.list ]; then
+			echo -n "Removing package repository [$n]... "
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				rm /etc/apt/sources.list.d/$n.list
+				echo "OK"
+			fi
+		fi
+	done
+}
+
 setup_apt () {
 	if apt-key list 2>/dev/null |grep -q "packaging@solarnetwork.org.nz" >/dev/null; then
 		echo 'SNF package repository GPG key already imported.'
@@ -381,6 +395,9 @@ setup_apt () {
 			echo "OK"
 		fi
 	fi
+
+	# Remove some extra repos possible present in distros like Armbian
+	remove_apt_repos box86 nala
 
 	if [ -n "$updated" -o -n "$UPDATE_PKG_CACHE" ]; then
 		echo -n "Updating package cache... "
