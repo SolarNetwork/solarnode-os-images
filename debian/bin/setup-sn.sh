@@ -430,7 +430,7 @@ setup_systemd () {
 		fi
 	fi
 	if [ -d /var/log/journal ]; then
-		echo -n 'Removing persistent journald storage /var/log/journal...'
+		echo -n 'Removing persistent journald storage /var/log/journal... '
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
