@@ -43,7 +43,7 @@ Setup script for a minimal SolarNode OS based on an upstream OS.
 
 Arguments:
  -A <package list file> - path to list of packages to add late in script
- -a <board>             - the Armbian board being set up; defaults to nanopiair
+ -a <board>             - the board being set up; defaults to raspberrypi
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot mount>        - the boot mount path; defaults to /boot
  -d <package list file> - path to list of packages to delete late in script;
@@ -340,6 +340,20 @@ setup_user () {
 	fi
 }
 
+remove_apt_repos () {
+	for n in "$@"; do
+		if [ -e /etc/apt/sources.list.d/$n.list ]; then
+			echo -n "Removing package repository [$n]... "
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				rm /etc/apt/sources.list.d/$n.list
+				echo "OK"
+			fi
+		fi
+	done
+}
+
 setup_apt () {
 	if apt-key list 2>/dev/null |grep -q "packaging@solarnetwork.org.nz" >/dev/null; then
 		echo 'SNF package repository GPG key already imported.'
@@ -382,6 +396,9 @@ setup_apt () {
 		fi
 	fi
 
+	# Remove some extra repos possible present in distros like Armbian
+	remove_apt_repos box86 nala
+
 	if [ -n "$updated" -o -n "$UPDATE_PKG_CACHE" ]; then
 		echo -n "Updating package cache... "
 		if [ -n "$DRY_RUN" ]; then
@@ -413,7 +430,7 @@ setup_systemd () {
 		fi
 	fi
 	if [ -d /var/log/journal ]; then
-		echo -n 'Removing persistent journald storage /var/log/journal...'
+		echo -n 'Removing persistent journald storage /var/log/journal... '
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
