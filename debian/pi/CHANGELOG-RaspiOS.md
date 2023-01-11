@@ -7,6 +7,37 @@ This document has a brief overview of the SolarNodeOS release history based on
 
 These are SolarNodeOS images based on the Debian 11 "bullseye" release.
 
+## 2023-01-12
+
+Based on the upstream RaspiOS (formerly Raspbian) `2022-09-22-raspios-bullseye-arm64-lite` image,
+and is based on Debian 11.6 and the 5.15.84 Linux kernel. This image requires a 2GB or larger SD
+card.
+
+Includes the following core SolarNode packages:
+
+| Package                        | Version | Description |
+|:-------------------------------|:--------|:------------|
+| mbpoll                         | 1.4.11  | Command line utility to communicate with Modbus devices | 
+| sn-nftables                    | 1.1.1-1 | nftables firewall management service |
+| sn-osstat                      | 1.1.0-2 | SolarNode OS statistics support |
+| sn-pi                          | 1.1.2-1 | Raspberry Pi SolarNode support |
+| sn-solarpkg                    | 1.1.2-1 | SolarNode package management support |
+| sn-solarssh                    | 1.0.0-3 | SolarSSH support |
+| sn-system                      | 1.5.0-1 | SolarNode system support |
+| sn-wifi                        | 1.4.0-2 | WiFi management service |
+| solarnode-app-core             | [2.11.0-1][solarnode-app-core-log] | SolarNode application core |
+| solarnode-app-db-h2            | 1.1.0-1 | SolarNode DB - H2 |
+| solarnode-app-io-mqtt          | 2.1.0-2 | SolarNode MQTT I/O - API |
+| solarnode-app-io-mqtt-netty    | 2.1.1-1 | SolarNode MQTT I/O - Netty |
+| solarnode-base                 | [1.16.0-1][solarnode-base-log] | SolarNode platform |
+| solarnode-base-h2              | 1.0.0-1 | SolarNode platform H2 database support |
+| solarnode-base-jackson         | 1.0.0-2 | SolarNode platform Jackson JSON support |
+| solarnode-base-netty           | 1.0.0-2 | SolarNode platform Netty support |
+| solarnode-base-spring          | 1.0.0-2 | SolarNode platform Spring support |
+| solarnode-base-spring-security | 1.0.0-2 | SolarNode platform Spring Security support |
+| yasdishell                     | 1.8.1-Build9 | Interactive shell for SMA inverters using libyasdi |
+
+
 ## 2022-04-20
 
 Based on the upstream RaspiOS (formerly Raspbian) `2022-04-04-raspios-bullseye-arm64-lite` image,
