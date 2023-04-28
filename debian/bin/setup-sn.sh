@@ -355,16 +355,38 @@ remove_apt_repos () {
 }
 
 setup_apt () {
-	if apt-key list 2>/dev/null |grep -q "packaging@solarnetwork.org.nz" >/dev/null; then
-		echo 'SNF package repository GPG key already imported.'
-	else
-		echo -n 'Importing SNF package repository GPG key... '
-		if [ -n "$DRY_RUN" ]; then
-			echo "DRY RUN"
+	local ver=0
+	if [ -e /etc/debian_version ]; then
+		ver="$(cat /etc/debian_version |sed 's/\..*$//')"
+	fi
+	if [ $ver -gt 10 ]; then
+		if [ -e /etc/apt/keyrings/solarnetwork.gpg ]; then
+			echo 'SNF package repository GPG key already saved.'
 		else
-			pkg_install curl
-			pkg_install gnupg
-			curl -s "$SNF_PKG_REPO/KEY.gpg" |apt-key add -
+			echo -n 'Saving SNF package repository GPG key... '
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				pkg_install curl >/dev/null
+				pkg_install gnupg >/dev/null
+				mkdir -p /etc/apt/keyrings
+				curl -s "$SNF_PKG_REPO/KEY.gpg" |gpg --dearmor 2>/dev/null \
+					|tee /etc/apt/keyrings/solarnetwork.gpg >/dev/null
+				echo "OK"
+			fi
+		fi
+	else
+		if apt-key list 2>/dev/null |grep -q "packaging@solarnetwork.org.nz" >/dev/null; then
+			echo 'SNF package repository GPG key already imported.'
+		else
+			echo -n 'Importing SNF package repository GPG key... '
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				pkg_install curl >/dev/null
+				pkg_install gnupg >/dev/null
+				curl -s "$SNF_PKG_REPO/KEY.gpg" |apt-key add -
+			fi
 		fi
 	fi
 
@@ -376,13 +398,15 @@ setup_apt () {
 		updated=1
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
+		elif [ $ver -gt 10 ]; then
+			echo "deb [signed-by=/etc/apt/keyrings/solarnetwork.gpg] $SNF_PKG_REPO $PKG_DIST main" >/etc/apt/sources.list.d/solarnetwork.list
 		else
 			echo "deb $SNF_PKG_REPO $PKG_DIST main" >/etc/apt/sources.list.d/solarnetwork.list
-			echo "OK"
-			case $SNF_PKG_REPO in https*)
-				pkg_install apt-transport-https
-			esac
 		fi
+		echo "OK"
+		case $SNF_PKG_REPO in https*)
+			pkg_install apt-transport-https
+		esac
 	fi
 
 	if grep '^deb.*-backports' /etc/apt/sources.list >/dev/null 2>/dev/null; then
