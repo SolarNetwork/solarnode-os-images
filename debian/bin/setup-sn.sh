@@ -188,8 +188,12 @@ pkgs_remove () {
 	if [ -n "$DRY_RUN" ]; then
 		echo "DRY RUN"
 	else
-		apt-get -qy remove --purge $@ >>$LOG 2>>$ERR_LOG
-		echo "OK"
+		if apt-get -qy remove --purge $@ >>$LOG 2>>$ERR_LOG; then
+			echo "OK"
+		else
+			echo "Error removing packages!"
+			exit 1
+		fi
 	fi
 }
 
