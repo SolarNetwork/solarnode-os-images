@@ -552,7 +552,7 @@ setup_software_late () {
 	if [ -n "$PKG_DEL_LATE" -a -e "$INPUT_DIR/$PKG_DEL_LATE" ]; then
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
 		while IFS= read -r line; do
-			if ! grep -q "^$line$" /tmp/pkgs.txt; then
+			if grep -q "^$line$" /tmp/pkgs.txt; then
 				pkg_remove "$line"
 			fi
 		done < "$INPUT_DIR/$PKG_DEL_LATE"
