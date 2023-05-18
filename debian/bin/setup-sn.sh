@@ -18,6 +18,7 @@ PKG_KEEP="conf/setup-packages-keep.txt"
 PKG_ADD="conf/setup-packages-add.txt"
 PKG_ADD_EARLY="conf/setup-packages-add-early.txt"
 PKG_ADD_LATE=""
+PKG_DEL_EARLY=""
 PKG_DEL_LATE="conf/setup-packages-del-late.txt"
 PI_USER="pi"
 RELEASE_NAME="SolarNodeOS"
@@ -46,6 +47,7 @@ Arguments:
  -a <board>             - the board being set up; defaults to raspberrypi
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot mount>        - the boot mount path; defaults to /boot
+ -D <package list file> - path to list of packages to delete early in script
  -d <package list file> - path to list of packages to delete late in script;
                           defaults to conf/setup-packages-del-late.txt
  -e <package list file> - path to list of packages to add early in script;
@@ -86,12 +88,13 @@ Arguments:
 EOF
 }
 
-while getopts ":A:a:B:b:e:Eh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
+while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 	case $opt in
 		A) PKG_ADD_LATE="${OPTARG}";;
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
 		b) BOOT_MOUNT="${OPTARG}";;
+		D) PKG_DEL_EARLY="${OPTARG}";;
 		d) PKG_DEL_LATE="${OPTARG}";;
 		e) PKG_ADD_EARLY="${OPTARG}";;
 		E) SKIP_FS_EXPAND='TRUE';;
@@ -472,6 +475,19 @@ setup_systemd () {
 }
 
 setup_software_early () {
+	# delete all packages in delete-early manifest
+	if [ -n "$PKG_DEL_EARLY" -a -e "$INPUT_DIR/$PKG_DEL_EARLY" ]; then
+		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
+		while IFS= read -r line; do
+			if grep -q "^$line$" /tmp/pkgs.txt; then
+				pkg_remove "$line"
+			fi
+		done < "$INPUT_DIR/$PKG_DEL_EARLY"
+	elif [ -n "$PKG_DEL_EARLY" ]; then
+		echo "-D option provided but [$INPUT_DIR/$PKG_DEL_EARLY] file not available."
+		exit 1
+	fi
+
 	if [ -n "$UPDATE_PKG_CACHE_START" ]; then
 		echo -n "Updating package cache... "
 		if [ -n "$DRY_RUN" ]; then
