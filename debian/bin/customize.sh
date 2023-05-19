@@ -474,7 +474,7 @@ setup_mounts () {
 				>>$SRC_MOUNT/etc/fstab && echo "OK" || echo "ERROR"
 		fi
 	fi
-	if ! grep -q '^tmpfs /run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
+	if ! grep -q '^tmpfs\s*/run ' $SRC_MOUNT/etc/fstab >/dev/null 2>&1; then
 		echo -n "Adding /run mount in $SRC_MOUNT/etc/fstab with explicit size... "
 		echo 'tmpfs /run tmpfs rw,nosuid,noexec,relatime,size=50%,mode=755 0 0' >>$SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
