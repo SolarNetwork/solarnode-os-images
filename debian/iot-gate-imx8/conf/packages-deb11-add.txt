@@ -1,0 +1,15 @@
+nano
+ttf-bitstream-vera
+openjdk-11-jre-headless
+sn-iptables
+sn-mbpoll
+sn-osstat
+sn-pi
+sn-solarpkg
+sn-solarssh
+sn-system
+tmux
+yasdishell
+solarnode-base
+solarnode-app-core
+solarnode-app-db-h2
