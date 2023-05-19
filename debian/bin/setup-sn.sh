@@ -681,7 +681,7 @@ setup_issue () {
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			sed -i '1s/.*\\/'"$RELEASE_FULLNAME"' \\/' /etc/issue
+			sed -n -i '1h;2,$H;${g;s/[^\\]*\\/'"$RELEASE_FULLNAME"' \\/;p}' /etc/issue
 			echo 'OK'
 		fi
 	fi
