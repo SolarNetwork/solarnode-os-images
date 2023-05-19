@@ -494,8 +494,8 @@ setup_mounts () {
 		# make sure boot mount options match desired + errors=remount-ro
 		fsopts="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $4}')"
 		fstype="$(grep "LABEL=$BOOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $3}')"
-		if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}" ]; then
-			echo -n "Changing /boot fs options in $SRC_MOUNT/etc/fstab from [$fsopts] to [${DEST_MNT_OPTS[$fstype]}]... "
+		if [ $fstype != "auto" -a "$fsopts" != "${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}" ]; then
+			echo -n "Changing /boot $fstype options in $SRC_MOUNT/etc/fstab from [$fsopts] to [${DEST_MNT_OPTS[$fstype]}]... "
 			sed -i 's/\(LABEL='"$BOOT_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}"' /' $SRC_MOUNT/etc/fstab \
 				&& echo "OK" || echo "ERROR"
 		fi
@@ -505,7 +505,7 @@ setup_mounts () {
 	fsopts="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $4}')"
 	fstype="$(grep "LABEL=$ROOT_DEV_LABEL" $SRC_MOUNT/etc/fstab 2>&1 |awk '{print $3}')"
 	if [ "$fsopts" != "${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}" ]; then
-		echo -n "Changing / fs options in $SRC_MOUNT/etc/fstab from [$fsopts] to [${DEST_MNT_OPTS[$fstype]}]... "
+		echo -n "Changing / $fstype options in $SRC_MOUNT/etc/fstab from [$fsopts] to [${DEST_MNT_OPTS[$fstype]}]... "
 		sed -i 's/\(LABEL='"$ROOT_DEV_LABEL"'[ 	][ 	]*[^ 	]*[ 	][ 	]*[^ 	]*\)[ 	][ 	]*[^ 	]*[ 	]/\1 '"${DEST_MNT_OPTS[$fstype]}${RO_DEST_FSOPTS}"' /' $SRC_MOUNT/etc/fstab \
 			&& echo "OK" || echo "ERROR"
 	fi
