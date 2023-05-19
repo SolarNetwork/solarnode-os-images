@@ -22,7 +22,7 @@ PKG_ADD_EARLY="conf/setup-packages-add-early.txt"
 PKG_ADD_LATE=""
 PKG_DEL_EARLY=""
 PKG_DEL_LATE="conf/setup-packages-del-late.txt"
-PI_USER="pi"
+OLD_USER="pi"
 RELEASE_NAME="SolarNodeOS"
 RELEASE_VERSION="10"
 ROOT_DEV="/dev/mmcblk0p2"
@@ -83,7 +83,7 @@ Arguments:
  -S                     - skip software install
  -U <user pass>         - the app user password; defaults to solar
  -u <username>          - the app username to use; defaults to solar
- -V <pi user>           - the pi username to delete; defaults to pi
+ -V <old user>          - the old username to delete; defaults to pi
  -v                     - verbose mode; print out more verbose messages
  -W                     - without syslog
  -w                     - wihtout localepurge
@@ -122,7 +122,7 @@ while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:" opt
 		S) SKIP_SOFTWARE='TRUE';;
 		U) APP_USER_PASS="${OPTARG}";;
 		u) APP_USER="${OPTARG}";;
-		V) PI_USER="${OPTARG}";;
+		V) OLD_USER="${OPTARG}";;
 		v) VERBOSE='TRUE';;
 		W) WITHOUT_SYSLOG='TRUE';;
 		w) WITHOUT_LOCALEPURGE='TRUE';;
@@ -299,22 +299,22 @@ setup_user () {
 	fi
 
 	# delete any 'pi' user if found
-	if id "$PI_USER" >/dev/null 2>&1; then
-		echo -n "Deleting user $PI_USER..."
+	if id "$OLD_USER" >/dev/null 2>&1; then
+		echo -n "Deleting user $OLD_USER..."
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
-			killall -u $PI_USER
-			deluser "$PI_USER" >/dev/null 2>>$ERR_LOG && echo "OK" || {
+			killall -u $OLD_USER
+			deluser "$OLD_USER" >/dev/null 2>>$ERR_LOG && echo "OK" || {
 				echo "ERROR"
 				echo "You might need to log out, then back in as the $APP_USER user to continue."
 				exit 1; }
-			if [ -d /home/"$PI_USER" ]; then
-				rm -rf /home/"$PI_USER"
+			if [ -d /home/"$OLD_USER" ]; then
+				rm -rf /home/"$OLD_USER"
 			fi
 		fi
 	else
-		echo "User $PI_USER already removed."
+		echo "User $OLD_USER already removed."
 	fi
 	
 	# lock root account if not already
