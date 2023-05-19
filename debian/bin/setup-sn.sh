@@ -12,6 +12,8 @@ BOARD="raspberrypi"
 BOOT_DEV_LABEL="SOLARBOOT"
 BOOT_MOUNT="/boot"
 DRY_RUN=""
+EXTRA_SCRIPT_EARLY=""
+EXTRA_SCRIPT_LATE=""
 HOSTNAME="solarnode"
 INPUT_DIR="/tmp/overlay"
 PKG_KEEP="conf/setup-packages-keep.txt"
@@ -85,10 +87,12 @@ Arguments:
  -v                     - verbose mode; print out more verbose messages
  -W                     - without syslog
  -w                     - wihtout localepurge
+ -X <script path>       - execute extra script (early); will be passed -n and -v arguments
+ -x <script path>       - execute extra script (late); will be passed -n and -v arguments
 EOF
 }
 
-while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
+while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:" opt; do
 	case $opt in
 		A) PKG_ADD_LATE="${OPTARG}";;
 		a) BOARD="${OPTARG}";;
@@ -122,6 +126,8 @@ while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 		v) VERBOSE='TRUE';;
 		W) WITHOUT_SYSLOG='TRUE';;
 		w) WITHOUT_LOCALEPURGE='TRUE';;
+		X) EXTRA_SCRIPT_EARLY="${OPTARG}";;
+		x) EXTRA_SCRIPT_LATE="${OPTARG}";;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -732,6 +738,25 @@ setup_ssh () {
 	fi
 }
 
+extra_script () {
+	local s="$1"
+	if [ -n "$s" -a -e "$INPUT_DIR/$s" ]; then
+		local argn=""
+		local argv=""
+		if [ -n "$DRY_RUN" ]; then
+			argn="-n"
+		fi
+		if [ -n "$VERBOSE" ]; then
+			argv="-v"
+		fi
+		sh "$INPUT_DIR/$s" $argn $argv
+	elif [ -n "$s" ]; then
+		echo "Error: extra script [$INPUT_DIR/$s] not available."
+		exit 1
+	fi
+}
+
+extra_script "$EXTRA_SCRIPT_EARLY"
 setup_software_early
 setup_hostname
 setup_dns
@@ -756,4 +781,5 @@ if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software_late
 fi
 setup_ssh
+extra_script "$EXTRA_SCRIPT_LATE"
 check_err
