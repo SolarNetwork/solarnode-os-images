@@ -233,6 +233,10 @@ setup_src_loopdev () {
 	# seems system needs a little rest before labels are available in lsblk?
 	sleep 1
 	
+	# see if using MBR vs GPT parition scheme
+	PART_SCHEME="$(sfdisk -l $LOOPDEV -o Type |grep -i 'disklabel type' |cut -d' ' -f3)"
+	echo "Discovered $PART_SCHEME partition scheme in source image."
+	
 	local part_count="$(($(lsblk -npo kname $LOOPDEV|wc -l) - 1))"
 	if [ -n "$VERBOSE" ]; then
 		echo "Discovered $part_count partitions in source image."
@@ -655,24 +659,58 @@ execute_chroot () {
 	fi
 }
 
-copy_bootloader () {
-	local dev="$1"
-	# note: following assumes MBR, with first 440 bytes the boot loader
-	local start_len="440"
-	local bl_offset="1"
-	local bl_len=$(echo "$(sfdisk -ql $dev -o Start |tail -n +2 |head -1) - $bl_offset" |bc)
-	if ! dd status=none if=$SRC_IMG of=$dev bs=$start_len count=1; then
-		echo "Error: problem copying MBR bootloader from $SRC_IMG to $dev."
-	elif [ -n "$VERBOSE" ]; then
-		echo "Copied $start_len bootloader bytes from $SRC_IMG to $dev."
+setup_boot_cmdline () {
+	local part="$1"
+	local fstype="$2"
+	local rootpartuuid="$3"
+	local subdir="$4"
+	local tmp_mount=$(mktemp -d -t sn-XXXXX)
+	local tmp_root="$tmp_mount"
+	if [ -n "$VERBOSE" ]; then
+		echo "Mounting $part on $tmp_mount with options ${MNT_OPTS[$fstype]}."
 	fi
-	if ! dd status=none if=$SRC_IMG of=$dev bs=512 skip=$bl_offset seek=$bl_offset count=$bl_len; then
-		echo "Error: problem copying bootloader from $SRC_IMG to $dev."
-	elif [ -n "$VERBOSE" ]; then
-		echo "Copied ${bl_len} sectors starting from $bl_offset for bootloader from $SRC_IMG to $dev."
+	if ! mount -o ${MNT_OPTS[$fstype]} "$part" "$tmp_mount"; then
+		echo "Error: failed to mount $part on $tmp_mount."
+		exit 1
 	fi
+	if [ -n "$subdir" ]; then
+		tmp_root="$tmp_root/$subdir"
+	fi
+	if [ -e "$tmp_root/cmdline.txt" ]; then
+		if grep ' root=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Changing root to PARTUUID=$rootpartuuid in $tmp_root/cmdline.txt... "
+			sed -i 's/root=[^ ]*/root=PARTUUID='"$rootpartuuid"'/' $tmp_root/cmdline.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
+		if [ -n "$DEST_ROOT_FSTYPE" ]; then
+			if grep ' rootfstype=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
+				echo -n "Changing rootfstype to $DEST_ROOT_FSTYPE in $tmp_root/cmdline.txt... "
+				sed -i 's/rootfstype=[^ ]*/rootfstype='"$DEST_ROOT_FSTYPE"'/' $tmp_root/cmdline.txt \
+					&& echo "OK" || echo "ERROR"
+			fi
+		fi
+		if grep ' init=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Removing init from $tmp_root/cmdline.txt... "
+			sed -i 's/ init=[^ ]*//' $tmp_root/cmdline.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
+		if ! grep ' fsck.repair=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
+			echo -n "Adding fsck.repair=yes to $tmp_root/cmdline.txt... "
+			sed -i '1s/$/ fsck.repair/' $tmp_root/cmdline.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
+	elif [ -e "$tmp_root/armbianEnv.txt" ]; then
+		if grep 'rootdev=' "$tmp_root/armbianEnv.txt" >/dev/null 2>&1; then
+			echo -n "Changing rootdev to PARTUUID=$rootpartuuid in $tmp_root/armbianEnv.txt... "
+			sed -i 's/rootdev=[^ ]*/rootdev=PARTUUID='"$rootpartuuid"'/' $tmp_root/armbianEnv.txt \
+				&& echo "OK" || echo "ERROR"
+		fi
+	fi
+	umount "$tmp_mount"
+	rmdir "$tmp_mount"
 }
 
+# the copy_part function will save the UUID of the destination partition in $LAST_PARTUUID
 LAST_PARTUUID=""
 
 copy_part () {
@@ -719,57 +757,6 @@ copy_part () {
 		if grep -q 'LABEL=[^ ]* */boot' $tmp_mount/etc/fstab >/dev/null 2>&1; then
 			echo -n "Changing /boot mount in $tmp_mount/etc/fstab to use PARTUUID=$prev_partuuid... "
 			sed -i 's/^.*LABEL=[^ ]* *\/boot/PARTUUID='"$prev_partuuid"' \/boot/' $tmp_mount/etc/fstab \
-				&& echo "OK" || echo "ERROR"
-		fi
-	fi
-	umount "$tmp_mount"
-	rmdir "$tmp_mount"
-}
-
-setup_boot_cmdline () {
-	local part="$1"
-	local fstype="$2"
-	local rootpartuuid="$3"
-	local subdir="$4"
-	local tmp_mount=$(mktemp -d -t sn-XXXXX)
-	local tmp_root="$tmp_mount"
-	if [ -n "$VERBOSE" ]; then
-		echo "Mounting $part on $tmp_mount with options ${MNT_OPTS[$fstype]}."
-	fi
-	if ! mount -o ${MNT_OPTS[$fstype]} "$part" "$tmp_mount"; then
-		echo "Error: failed to mount $part on $tmp_mount."
-		exit 1
-	fi
-	if [ -n "$subdir" ]; then
-		tmp_root="$tmp_root/$subdir"
-	fi
-	if [ -e "$tmp_root/cmdline.txt" ]; then
-		if grep ' root=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
-			echo -n "Changing root to PARTUUID=$rootpartuuid in $tmp_root/cmdline.txt... "
-			sed -i 's/root=[^ ]*/root=PARTUUID='"$rootpartuuid"'/' $tmp_root/cmdline.txt \
-				&& echo "OK" || echo "ERROR"
-		fi
-		if [ -n "$DEST_ROOT_FSTYPE" ]; then
-			if grep ' rootfstype=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
-				echo -n "Changing rootfstype to $DEST_ROOT_FSTYPE in $tmp_root/cmdline.txt... "
-				sed -i 's/rootfstype=[^ ]*/rootfstype='"$DEST_ROOT_FSTYPE"'/' $tmp_root/cmdline.txt \
-					&& echo "OK" || echo "ERROR"
-			fi
-		fi
-		if grep ' init=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
-			echo -n "Removing init from $tmp_root/cmdline.txt... "
-			sed -i 's/ init=[^ ]*//' $tmp_root/cmdline.txt \
-				&& echo "OK" || echo "ERROR"
-		fi
-		if ! grep ' fsck.repair=' "$tmp_root/cmdline.txt" >/dev/null 2>&1; then
-			echo -n "Adding fsck.repair=yes to $tmp_root/cmdline.txt... "
-			sed -i '1s/$/ fsck.repair/' $tmp_root/cmdline.txt \
-				&& echo "OK" || echo "ERROR"
-		fi
-	elif [ -e "$tmp_root/armbianEnv.txt" ]; then
-		if grep 'rootdev=' "$tmp_root/armbianEnv.txt" >/dev/null 2>&1; then
-			echo -n "Changing rootdev to PARTUUID=$rootpartuuid in $tmp_root/armbianEnv.txt... "
-			sed -i 's/rootdev=[^ ]*/rootdev=PARTUUID='"$rootpartuuid"'/' $tmp_root/armbianEnv.txt \
 				&& echo "OK" || echo "ERROR"
 		fi
 	fi
@@ -832,10 +819,21 @@ copy_img () {
 				fi
 			done
 		fi
+		
+		if [ "$PART_SCHEME" = "gpt" ]; then
+			# move backup table to after last partition, so we can shrink the image size after
+			echo -n "Shifting GPT backup table to after last partition..."
+			if ! sfdisk -q --relocate gpt-bak-mini $out_loopdev; then
+				echo "ERROR"
+				exit 1
+			else
+				echo "OK"
+			fi
+		fi
+		
 		partx -u "$out_loopdev"
 	fi
 
-	copy_bootloader "$out_loopdev"
 	if [ -z "$NO_BOOT_PARTITION" ]; then
 		copy_part "${out_loopdev}${SOLARBOOT_PART##$LOOPDEV}" "$FSTYPE_SOLARBOOT" "SOLARBOOT" "$SRC_MOUNT$BOOT_DEV_MOUNT"
 	fi
@@ -851,7 +849,7 @@ copy_img () {
 	if [ -z "$ERR" -a -n "$SOLARDATA_PART" ]; then
 		copy_part "${out_loopdev}${SOLARDATA_PART##$LOOPDEV}" "${DEST_DATA_FSTYPE:-${FSTYPE_SOLARDATA}}" "SOLARDATA" "$SRC_MOUNT$DATA_DEV_MOUNT"
 	fi
-	
+			
 	if [ -n "$VERBOSE" ]; then
 		echo "Closing output image loop device $out_loopdev."
 	fi
