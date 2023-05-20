@@ -1,14 +1,14 @@
 nano
 ttf-bitstream-vera
 openjdk-11-jre-headless
+tmux
+systemd-timesyncd
 sn-iptables
 sn-mbpoll
 sn-osstat
-sn-pi
 sn-solarpkg
 sn-solarssh
 sn-system
-tmux
 yasdishell
 solarnode-base
 solarnode-app-core

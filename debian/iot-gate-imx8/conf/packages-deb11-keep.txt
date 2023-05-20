@@ -8,6 +8,7 @@ bash
 bc
 bsdutils
 busybox
+busybox-syslogd
 bzip2
 ca-certificates
 cl-deploy
