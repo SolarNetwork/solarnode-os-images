@@ -12,3 +12,13 @@ sudo ../bin/customize.sh -v -z \
 	../bin/setup-sn.sh \
 	$PWD:/tmp/overlay
 ```
+
+# Copying to eMMC
+
+To copy the image to the eMMC on an IoT device
+
+1. Connect a USB cable between the micro-USB "Console" serial port on the IoT and your computer
+2. Connect to the USB console with a terminal emulator, e.g. `screen /dev/tty.usbserial-0236DBD7 115200`
+3. Copy the image to a USB stick, plug the USB stick into the IoT, power it on
+4. The IoT will boot SolarNodeOS; log in as `solar/solar`
+5. Switch to `root` with `sudo su - ` and then run `cl-deploy` and follow the prompts
