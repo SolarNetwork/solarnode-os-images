@@ -485,16 +485,19 @@ setup_systemd () {
 
 setup_zone () {
 	if [ -n "$ZONE" ]; then
-		local curr_zone="$(cat /etc/timezone)"
-		if [ "$ZONE" != "$curr_zone" ]; then
-			echo -n "Changing system time zone from $curr_zone to $ZONE... "
-			if [ -n "$DRY_RUN" ]; then
-				echo "DRY RUN"
-			else
-				echo "$ZONE" >/etc/timezone
-				echo "OK"
+		if [ -e /etc/timezone ]; then
+			local curr_zone="$(cat /etc/timezone)"
+			if [ "$ZONE" != "$curr_zone" ]; then
+				echo -n "Changing system time zone from $curr_zone to $ZONE... "
+				if [ -n "$DRY_RUN" ]; then
+					echo "DRY RUN"
+				else
+					echo "$ZONE" >/etc/timezone
+					echo "OK"
+				fi
 			fi
 		fi
+		ln -sf /usr/share/zoneinfo/$ZONE /etc/localtime
 	fi
 }
 
