@@ -37,6 +37,7 @@ UPGRADE_PKGS=""
 VERBOSE=""
 WITHOUT_SYSLOG=""
 WITHOUT_LOCALEPURGE=""
+ZONE=""
 
 do_help () {
 	cat 1>&2 <<EOF
@@ -89,10 +90,11 @@ Arguments:
  -w                     - wihtout localepurge
  -X <script path>       - execute extra script (early); will be passed -n and -v arguments
  -x <script path>       - execute extra script (late); will be passed -n and -v arguments
+ -Z <time zone>         - the time zone to change to image system to
 EOF
 }
 
-while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:" opt; do
+while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" opt; do
 	case $opt in
 		A) PKG_ADD_LATE="${OPTARG}";;
 		a) BOARD="${OPTARG}";;
@@ -128,6 +130,7 @@ while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:" opt
 		w) WITHOUT_LOCALEPURGE='TRUE';;
 		X) EXTRA_SCRIPT_EARLY="${OPTARG}";;
 		x) EXTRA_SCRIPT_LATE="${OPTARG}";;
+		Z) ZONE="${OPTARG}";;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -480,6 +483,21 @@ setup_systemd () {
 	fi
 }
 
+setup_zone () {
+	if [ -n "$ZONE" ]; then
+		local curr_zone="$(cat /etc/timezone)"
+		if [ "$ZONE" != "$curr_zone" ]; then
+			echo -n "Changing system time zone from $curr_zone to $ZONE... "
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				echo "$ZONE" >/etc/timezone
+				echo "OK"
+			fi
+		fi
+	fi
+}
+
 setup_software_early () {
 	# delete all packages in delete-early manifest
 	if [ -n "$PKG_DEL_EARLY" -a -e "$INPUT_DIR/$PKG_DEL_EARLY" ]; then
@@ -762,6 +780,7 @@ setup_hostname
 setup_dns
 setup_user
 setup_systemd
+setup_zone
 setup_apt
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software
