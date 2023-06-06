@@ -12,14 +12,17 @@ BOARD="raspberrypi"
 BOOT_DEV_LABEL="SOLARBOOT"
 BOOT_MOUNT="/boot"
 DRY_RUN=""
+EXTRA_SCRIPT_EARLY=""
+EXTRA_SCRIPT_LATE=""
 HOSTNAME="solarnode"
 INPUT_DIR="/tmp/overlay"
 PKG_KEEP="conf/setup-packages-keep.txt"
 PKG_ADD="conf/setup-packages-add.txt"
 PKG_ADD_EARLY="conf/setup-packages-add-early.txt"
 PKG_ADD_LATE=""
+PKG_DEL_EARLY=""
 PKG_DEL_LATE="conf/setup-packages-del-late.txt"
-PI_USER="pi"
+OLD_USER="pi"
 RELEASE_NAME="SolarNodeOS"
 RELEASE_VERSION="10"
 ROOT_DEV="/dev/mmcblk0p2"
@@ -34,6 +37,7 @@ UPGRADE_PKGS=""
 VERBOSE=""
 WITHOUT_SYSLOG=""
 WITHOUT_LOCALEPURGE=""
+ZONE=""
 
 do_help () {
 	cat 1>&2 <<EOF
@@ -46,6 +50,7 @@ Arguments:
  -a <board>             - the board being set up; defaults to raspberrypi
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot mount>        - the boot mount path; defaults to /boot
+ -D <package list file> - path to list of packages to delete early in script
  -d <package list file> - path to list of packages to delete late in script;
                           defaults to conf/setup-packages-del-late.txt
  -e <package list file> - path to list of packages to add early in script;
@@ -79,19 +84,23 @@ Arguments:
  -S                     - skip software install
  -U <user pass>         - the app user password; defaults to solar
  -u <username>          - the app username to use; defaults to solar
- -V <pi user>           - the pi username to delete; defaults to pi
+ -V <old user>          - the old username to delete; defaults to pi
  -v                     - verbose mode; print out more verbose messages
  -W                     - without syslog
  -w                     - wihtout localepurge
+ -X <script path>       - execute extra script (early); will be passed -n and -v arguments
+ -x <script path>       - execute extra script (late); will be passed -n and -v arguments
+ -Z <time zone>         - the time zone to change to image system to
 EOF
 }
 
-while getopts ":A:a:B:b:e:Eh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
+while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" opt; do
 	case $opt in
 		A) PKG_ADD_LATE="${OPTARG}";;
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
 		b) BOOT_MOUNT="${OPTARG}";;
+		D) PKG_DEL_EARLY="${OPTARG}";;
 		d) PKG_DEL_LATE="${OPTARG}";;
 		e) PKG_ADD_EARLY="${OPTARG}";;
 		E) SKIP_FS_EXPAND='TRUE';;
@@ -115,10 +124,13 @@ while getopts ":A:a:B:b:e:Eh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWw" opt; do
 		S) SKIP_SOFTWARE='TRUE';;
 		U) APP_USER_PASS="${OPTARG}";;
 		u) APP_USER="${OPTARG}";;
-		V) PI_USER="${OPTARG}";;
+		V) OLD_USER="${OPTARG}";;
 		v) VERBOSE='TRUE';;
 		W) WITHOUT_SYSLOG='TRUE';;
 		w) WITHOUT_LOCALEPURGE='TRUE';;
+		X) EXTRA_SCRIPT_EARLY="${OPTARG}";;
+		x) EXTRA_SCRIPT_LATE="${OPTARG}";;
+		Z) ZONE="${OPTARG}";;
 		*)
 			echo "Unknown argument ${OPTARG}"
 			do_help
@@ -188,8 +200,12 @@ pkgs_remove () {
 	if [ -n "$DRY_RUN" ]; then
 		echo "DRY RUN"
 	else
-		apt-get -qy remove --purge $@ >>$LOG 2>>$ERR_LOG
-		echo "OK"
+		if apt-get -qy remove --purge $@ >>$LOG 2>>$ERR_LOG; then
+			echo "OK"
+		else
+			echo "Error removing packages!"
+			exit 1
+		fi
 	fi
 }
 
@@ -286,22 +302,22 @@ setup_user () {
 	fi
 
 	# delete any 'pi' user if found
-	if id "$PI_USER" >/dev/null 2>&1; then
-		echo -n "Deleting user $PI_USER..."
+	if id "$OLD_USER" >/dev/null 2>&1; then
+		echo -n "Deleting user $OLD_USER..."
 		if [ -n "$DRY_RUN" ]; then
 			echo "DRY RUN"
 		else
-			killall -u $PI_USER
-			deluser "$PI_USER" >/dev/null 2>>$ERR_LOG && echo "OK" || {
+			killall -u $OLD_USER
+			deluser "$OLD_USER" >/dev/null 2>>$ERR_LOG && echo "OK" || {
 				echo "ERROR"
 				echo "You might need to log out, then back in as the $APP_USER user to continue."
 				exit 1; }
-			if [ -d /home/"$PI_USER" ]; then
-				rm -rf /home/"$PI_USER"
+			if [ -d /home/"$OLD_USER" ]; then
+				rm -rf /home/"$OLD_USER"
 			fi
 		fi
 	else
-		echo "User $PI_USER already removed."
+		echo "User $OLD_USER already removed."
 	fi
 	
 	# lock root account if not already
@@ -467,7 +483,38 @@ setup_systemd () {
 	fi
 }
 
+setup_zone () {
+	if [ -n "$ZONE" ]; then
+		if [ -e /etc/timezone ]; then
+			local curr_zone="$(cat /etc/timezone)"
+			if [ "$ZONE" != "$curr_zone" ]; then
+				echo -n "Changing system time zone from $curr_zone to $ZONE... "
+				if [ -n "$DRY_RUN" ]; then
+					echo "DRY RUN"
+				else
+					echo "$ZONE" >/etc/timezone
+					echo "OK"
+				fi
+			fi
+		fi
+		ln -sf /usr/share/zoneinfo/$ZONE /etc/localtime
+	fi
+}
+
 setup_software_early () {
+	# delete all packages in delete-early manifest
+	if [ -n "$PKG_DEL_EARLY" -a -e "$INPUT_DIR/$PKG_DEL_EARLY" ]; then
+		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
+		while IFS= read -r line; do
+			if grep -q "^$line$" /tmp/pkgs.txt; then
+				pkg_remove "$line"
+			fi
+		done < "$INPUT_DIR/$PKG_DEL_EARLY"
+	elif [ -n "$PKG_DEL_EARLY" ]; then
+		echo "-D option provided but [$INPUT_DIR/$PKG_DEL_EARLY] file not available."
+		exit 1
+	fi
+
 	if [ -n "$UPDATE_PKG_CACHE_START" ]; then
 		echo -n "Updating package cache... "
 		if [ -n "$DRY_RUN" ]; then
@@ -552,7 +599,7 @@ setup_software_late () {
 	if [ -n "$PKG_DEL_LATE" -a -e "$INPUT_DIR/$PKG_DEL_LATE" ]; then
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
 		while IFS= read -r line; do
-			if ! grep -q "^$line$" /tmp/pkgs.txt; then
+			if grep -q "^$line$" /tmp/pkgs.txt; then
 				pkg_remove "$line"
 			fi
 		done < "$INPUT_DIR/$PKG_DEL_LATE"
@@ -655,7 +702,7 @@ setup_issue () {
 		if [ -n "$DRY_RUN" ]; then
 			echo 'DRY RUN'
 		else
-			sed -i '1s/.*\\/'"$RELEASE_FULLNAME"' \\/' /etc/issue
+			sed -n -i '1h;2,$H;${g;s/[^\\]*\\/'"$RELEASE_FULLNAME"' \\/;p}' /etc/issue
 			echo 'OK'
 		fi
 	fi
@@ -712,11 +759,31 @@ setup_ssh () {
 	fi
 }
 
+extra_script () {
+	local s="$1"
+	if [ -n "$s" -a -e "$INPUT_DIR/$s" ]; then
+		local argn=""
+		local argv=""
+		if [ -n "$DRY_RUN" ]; then
+			argn="-n"
+		fi
+		if [ -n "$VERBOSE" ]; then
+			argv="-v"
+		fi
+		sh "$INPUT_DIR/$s" $argn $argv
+	elif [ -n "$s" ]; then
+		echo "Error: extra script [$INPUT_DIR/$s] not available."
+		exit 1
+	fi
+}
+
+extra_script "$EXTRA_SCRIPT_EARLY"
 setup_software_early
 setup_hostname
 setup_dns
 setup_user
 setup_systemd
+setup_zone
 setup_apt
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software
@@ -736,4 +803,5 @@ if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software_late
 fi
 setup_ssh
+extra_script "$EXTRA_SCRIPT_LATE"
 check_err
