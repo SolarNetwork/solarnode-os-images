@@ -370,8 +370,21 @@ remove_apt_repos () {
 	done
 }
 
+pkg_set_arch () {
+	for f in $(dpkg --print-foreign-architectures); do
+		echo -n "Disabling foreign architecture $f... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			dpkg --remove-architecture $f 2>>$ERR_LOG
+			echo "OK"
+		fi
+	done
+}
+
 setup_apt () {
 	local ver=0
+	pkg_set_arch
 	if [ -e /etc/debian_version ]; then
 		ver="$(cat /etc/debian_version |sed 's/\..*$//')"
 	fi
