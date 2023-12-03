@@ -220,7 +220,7 @@ ncurses-bin
 ncurses-term
 netbase
 nftables
-openjdk-11-jre-headless
+openjdk-17-jre-headless
 openssh-client
 openssh-server
 openssh-sftp-server
