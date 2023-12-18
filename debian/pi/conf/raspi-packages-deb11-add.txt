@@ -5,6 +5,7 @@ sn-mbpoll
 sn-nftables
 sn-osstat
 sn-pi
+sn-pi-usb-support
 sn-solarpkg
 sn-solarssh
 sn-system
