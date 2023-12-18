@@ -1,10 +1,11 @@
 iw
 ttf-bitstream-vera
-openjdk-11-jre-headless
+openjdk-17-jre-headless
 sn-mbpoll
 sn-nftables
 sn-osstat
 sn-pi
+sn-pi-usb-support
 sn-solarpkg
 sn-solarssh
 sn-system
