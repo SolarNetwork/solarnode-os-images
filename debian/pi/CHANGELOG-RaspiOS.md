@@ -10,8 +10,7 @@ These are SolarNodeOS images based on the Debian 12 "bookworm" release.
 ## 2023-12-19
 
 Based on the upstream RaspiOS (formerly Raspbian) `2023-12-11-raspios-bookworm-arm64-lite` image,
-and is based on Debian 12.1 and the 6.1.21 Linux kernel. This image requires a 2GB or larger SD
-card.
+and is based on Debian 12.4 and the 6.1 Linux kernel. This image requires a 2GB or larger SD card.
 
 Includes the following core SolarNode packages:
 
