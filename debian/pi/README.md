@@ -180,8 +180,8 @@ image:
 
 ```sh
 sudo ../bin/customize.sh -v -z \
-	-N 1 -n 2 -c -M /boot -E 700 \
-	-a '-a raspberrypi -M 12 -q bookworm -m -w -Q -Z UTC -K conf/raspi-packages-deb12-add.txt -A conf/raspi-packages-deb12-add-late.txt -k conf/raspi-packages-deb12-keep.txt -o 172.16.159.143:3142' \
+	-N 1 -n 2 -e 200 -E 956 -c -M /boot/firmware \
+	-a '-a raspberrypi -b /boot/firmware -M 12 -q bookworm -m -w -Q -Z UTC -K conf/raspi-packages-deb12-add.txt -A conf/raspi-packages-deb12-add-late.txt -k conf/raspi-packages-deb12-keep.txt -o 172.16.159.143:3142' \
 	-o /var/tmp/solarnodeos-deb12-raspi-2GB-$(date '+%Y%m%d').img \
 	/var/tmp/2023-12-11-raspios-bookworm-arm64-lite.img.xz \
 	../bin/setup-sn.sh \
