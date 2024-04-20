@@ -1,6 +1,5 @@
 adduser
 apt
-apt-transport-https
 apt-utils
 base-files
 base-passwd
@@ -210,8 +209,8 @@ libxtables12
 libxxhash0
 libzstd1
 linux-base
-linux-image-6.1.0-rpi7-rpi-2712
-linux-image-6.1.0-rpi7-rpi-v8
+linux-image-6.6.20+rpt-rpi-2712
+linux-image-6.6.20+rpt-rpi-v8
 linux-image-rpi-2712
 linux-image-rpi-v8
 locales
@@ -237,6 +236,7 @@ pinentry-curses
 procps
 psmisc
 raspberrypi-archive-keyring
+raspi-firmware
 readline-common
 rfkill
 rsync
@@ -266,6 +266,7 @@ solarnode-base-spring-security
 ssh
 sudo
 systemd
+systemd-resolved
 systemd-sysv
 systemd-timesyncd
 sysvinit-utils

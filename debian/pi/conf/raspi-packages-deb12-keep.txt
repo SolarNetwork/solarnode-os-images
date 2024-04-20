@@ -237,6 +237,7 @@ pinentry-curses
 procps
 psmisc
 raspberrypi-archive-keyring
+raspi-firmware
 readline-common
 rfkill
 rsync
