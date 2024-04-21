@@ -7,6 +7,37 @@ This document has a brief overview of the SolarNodeOS release history based on
 
 These are SolarNodeOS images based on the Debian 12 "bookworm" release.
 
+## 2024-04-21
+
+Based on the upstream RaspiOS (formerly Raspbian) `2024-03-15-raspios-bookworm-arm64-lite` image,
+and is based on Debian 12.5 and the 6.6 Linux kernel. This image requires a 2GB or larger SD card.
+
+Includes the following core SolarNode packages:
+
+| Package                         | Version | Description |
+|:--------------------------------|:--------|:------------|
+| sn-mbpoll                       | 1.4.26-1 | Command line utility to communicate with Modbus devices |
+| sn-nftables                     | 1.1.1-1 | nftables firewall management service |
+| sn-osstat                       | 1.1.0-2 | SolarNode OS statistics support |
+| sn-pi                           | 1.1.2-1 | Raspberry Pi SolarNode support |
+| sn-pi-usb-support               | 1.2.0-1 | Raspberry Pi USB support |
+| sn-solarpkg                     | 1.2.0-1 | SolarNode package management support |
+| sn-solarssh                     | 1.0.0-3 | SolarSSH support |
+| sn-system                       | 1.7.0-1 | SolarNode system support |
+| sn-wifi                         | 1.4.0-2 | WiFi management service |
+| solarnode-app-core              | [3.17.1-1][solarnode-app-core-log] | SolarNode application core |
+| solarnode-app-db-h2             | 2.0.1-1 | SolarNode DB - H2 |
+| solarnode-app-io-mqtt           | 3.0.0-1 | SolarNode MQTT I/O - API |
+| solarnode-app-io-mqtt-netty     | 3.0.0-1 | SolarNode MQTT I/O - Netty |
+| solarnode-base                  | [4.0.0-1][solarnode-base-log] | SolarNode platform |
+| solarnode-base-h2               | 1.0.0-1 | SolarNode platform H2 database support |
+| solarnode-base-jackson          | 1.0.0-2 | SolarNode platform Jackson JSON support |
+| solarnode-base-netty            | 1.0.0-2 | SolarNode platform Netty support |
+| solarnode-base-reactive-streams | 1.0.0-1 | SolarNode platform Reactive Streams support |
+| solarnode-base-spring           | 2.0.0-1 | SolarNode platform Spring support |
+| solarnode-base-spring-security  | 2.0.0-1 | SolarNode platform Spring Security support |
+
+
 ## 2023-12-19
 
 Based on the upstream RaspiOS (formerly Raspbian) `2023-12-11-raspios-bookworm-arm64-lite` image,
@@ -41,6 +72,36 @@ Includes the following core SolarNode packages:
 # Debian 11
 
 These are SolarNodeOS images based on the Debian 11 "bullseye" release.
+
+## 2024-04-21
+
+Based on the upstream RaspiOS (formerly Raspbian) `2023-05-03-raspios-bullseye-arm64-lite` image,
+and is based on Debian 11.9 and the 6.1.21 Linux kernel. This image requires a 2GB or larger SD card.
+
+Includes the following core SolarNode packages:
+
+| Package                         | Version | Description |
+|:--------------------------------|:--------|:------------|
+| sn-mbpoll                       | 1.4.26-1 | Command line utility to communicate with Modbus devices |
+| sn-nftables                     | 1.1.1-1 | nftables firewall management service |
+| sn-osstat                       | 1.1.0-2 | SolarNode OS statistics support |
+| sn-pi                           | 1.1.2-1 | Raspberry Pi SolarNode support |
+| sn-pi-usb-support               | 1.2.0-1 | Raspberry Pi USB support |
+| sn-solarpkg                     | 1.2.0-1 | SolarNode package management support |
+| sn-solarssh                     | 1.0.0-3 | SolarSSH support |
+| sn-system                       | 1.7.0-1 | SolarNode system support |
+| sn-wifi                         | 1.4.0-2 | WiFi management service |
+| solarnode-app-core              | [3.17.1-1][solarnode-app-core-log] | SolarNode application core |
+| solarnode-app-db-h2             | 2.0.1-1 | SolarNode DB - H2 |
+| solarnode-app-io-mqtt           | 3.0.0-1 | SolarNode MQTT I/O - API |
+| solarnode-app-io-mqtt-netty     | 3.0.0-1 | SolarNode MQTT I/O - Netty |
+| solarnode-base                  | [4.0.0-1][solarnode-base-log] | SolarNode platform |
+| solarnode-base-h2               | 1.0.0-1 | SolarNode platform H2 database support |
+| solarnode-base-jackson          | 1.0.0-2 | SolarNode platform Jackson JSON support |
+| solarnode-base-netty            | 1.0.0-2 | SolarNode platform Netty support |
+| solarnode-base-reactive-streams | 1.0.0-1 | SolarNode platform Reactive Streams support |
+| solarnode-base-spring           | 2.0.0-1 | SolarNode platform Spring support |
+| solarnode-base-spring-security  | 2.0.0-1 | SolarNode platform Spring Security support |
 
 ## 2023-12-19
 
