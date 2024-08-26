@@ -51,9 +51,12 @@ iptables
 isc-dhcp-client
 kernel
 kernel-5.10.72-iot-gate-imx8-3.1+gaa91dea99095
+kernel-5.15.32-iot-gate-imx8m-3.2.2+
 kernel-devicetree
 kernel-image-5.10.72-iot-gate-imx8-3.1+gaa91dea99095
+kernel-image-5.15.32-iot-gate-imx8m-3.2.2+
 kernel-image-image-5.10.72-iot-gate-imx8-3.1+gaa91dea99095
+kernel-image-image-5.15.32-iot-gate-imx8m-3.2.2+
 kernel-module-adc-keys-5.10.72-iot-gate-imx8-3.1+gaa91dea99095
 kernel-module-aes-neon-blk-5.10.72-iot-gate-imx8-3.1+gaa91dea99095
 kernel-module-aes-neon-bs-5.10.72-iot-gate-imx8-3.1+gaa91dea99095
@@ -537,6 +540,7 @@ procps
 psmisc
 pv
 readline-common
+rsync
 runit-helper
 sed
 sensible-utils
