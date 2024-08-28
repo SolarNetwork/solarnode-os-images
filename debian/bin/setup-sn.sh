@@ -510,7 +510,9 @@ setup_zone () {
 				fi
 			fi
 		fi
-		ln -sf /usr/share/zoneinfo/$ZONE /etc/localtime
+		if [ -n "$DRY_RUN" ]; then
+			ln -sf /usr/share/zoneinfo/$ZONE /etc/localtime
+		fi
 	fi
 }
 
