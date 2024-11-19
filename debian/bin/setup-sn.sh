@@ -248,6 +248,17 @@ pkg_upgrade () {
 	fi
 }
 
+# update-initramfs failing in Debian 12 when MODULES=most not configured
+setup_initramfs () {
+	local sn_conf="/etc/initramfs-tools/conf.d/solarnode.conf"
+	if [ ! -e "$sn_conf" ]; then
+		if grep -q "MODULES=dep" /etc/initramfs-tools/initramfs.conf; then
+			echo "Adding MODULES=most initramfs configuration to $sn_conf..."
+			echo 'MODULES=most' >"$sn_conf"
+		fi
+	fi
+}
+
 setup_hostname () {
 	if grep -q "$HOSTNAME" /etc/hosts; then
 		echo "Hostname already set to $HOSTNAME."
@@ -793,6 +804,7 @@ extra_script () {
 }
 
 extra_script "$EXTRA_SCRIPT_EARLY"
+setup_initramfs
 setup_software_early
 setup_hostname
 setup_dns
