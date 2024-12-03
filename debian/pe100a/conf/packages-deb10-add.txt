@@ -1,10 +1,10 @@
+cron
 curl
 iproute2
 iw
 logrotate
 nano
 openjdk-11-jre-headless
-sn-nftables
 sn-osstat
 sn-rxtx
 sn-solarpkg

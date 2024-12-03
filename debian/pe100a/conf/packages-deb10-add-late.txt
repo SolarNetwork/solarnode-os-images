@@ -1,4 +1,6 @@
+cron
 iproute2
 iw
+logrotate
 udev
 wireless-regdb
