@@ -250,11 +250,13 @@ pkg_upgrade () {
 
 # update-initramfs failing in Debian 12 when MODULES=most not configured
 setup_initramfs () {
-	local sn_conf="/etc/initramfs-tools/conf.d/solarnode.conf"
-	if [ ! -e "$sn_conf" ]; then
-		if grep -q "MODULES=dep" /etc/initramfs-tools/initramfs.conf; then
-			echo "Adding MODULES=most initramfs configuration to $sn_conf..."
-			echo 'MODULES=most' >"$sn_conf"
+	if [ -d /etc/initramfs-tools/conf.d ]; then
+		local sn_conf="/etc/initramfs-tools/conf.d/solarnode.conf"
+		if [ ! -e "$sn_conf" ]; then
+			if grep -q "MODULES=dep" /etc/initramfs-tools/initramfs.conf; then
+				echo "Adding MODULES=most initramfs configuration to $sn_conf..."
+				echo 'MODULES=most' >"$sn_conf"
+			fi
 		fi
 	fi
 }
