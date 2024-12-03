@@ -611,9 +611,7 @@ setup_software () {
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
 		local to_add=""
 		while IFS= read -r line; do
-			if ! grep -q "^$line$" /tmp/pkgs.txt; then
-				to_add="$to_add $line"
-			fi
+			to_add="$to_add $line"
 		done < "$INPUT_DIR/$PKG_ADD"
 		if [ -n "$to_add" ]; then
 			pkgs_install $to_add
