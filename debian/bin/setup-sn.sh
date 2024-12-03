@@ -27,6 +27,7 @@ RELEASE_NAME="SolarNodeOS"
 RELEASE_VERSION="10"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
+SKIP_BOOT_CMDLINE=""
 SKIP_FS_EXPAND=""
 SKIP_SOFTWARE=""
 SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
@@ -56,6 +57,7 @@ Arguments:
  -e <package list file> - path to list of packages to add early in script;
                           defaults to conf/setup-packages-add-early.txt
  -E                     - skip setting the file system expansion marker
+ -G                     - skip modifying /boot/cmdline.txt
  -h <hostname>          - the hostname to use; defaults to solarnode
  -i <input dir>         - path to input configuration directory; defaults
                           to /tmp/overlay
@@ -94,7 +96,7 @@ Arguments:
 EOF
 }
 
-while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" opt; do
+while getopts ":A:a:B:b:D:d:Ee:Gh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" opt; do
 	case $opt in
 		A) PKG_ADD_LATE="${OPTARG}";;
 		a) BOARD="${OPTARG}";;
@@ -104,6 +106,7 @@ while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" o
 		d) PKG_DEL_LATE="${OPTARG}";;
 		e) PKG_ADD_EARLY="${OPTARG}";;
 		E) SKIP_FS_EXPAND='TRUE';;
+		G) SKIP_BOOT_CMDLINE='TRUE';;
 		h) HOSTNAME="${OPTARG}";;
 		i) INPUT_DIR="${OPTARG}";;
 		K) PKG_ADD="${OPTARG}";;
@@ -762,16 +765,18 @@ append_boot_cmdline () {
 	
 
 setup_boot_cmdline () {
-	append_boot_cmdline 'logo.nologo'
-	append_boot_cmdline 'quiet'
-	
-	# remove upstream init if provided
-	if grep -q 'init=' $BOOT_MOUNT/cmdline.txt; then
-		echo -n "Removing init= from $BOOT_MOUNT/cmdline.txt... "
-		if [ -n "$DRY_RUN" ]; then
-			echo 'DRY RUN'
-		else
-			sed -i 's/init=[^ ][^ ]*[ 	]//' $BOOT_MOUNT/cmdline.txt && echo "OK" || echo "ERROR"
+	if [ -z "$SKIP_BOOT_CMDLINE" ]; then
+		append_boot_cmdline 'logo.nologo'
+		append_boot_cmdline 'quiet'
+		
+		# remove upstream init if provided
+		if grep -q 'init=' $BOOT_MOUNT/cmdline.txt; then
+			echo -n "Removing init= from $BOOT_MOUNT/cmdline.txt... "
+			if [ -n "$DRY_RUN" ]; then
+				echo 'DRY RUN'
+			else
+				sed -i 's/init=[^ ][^ ]*[ 	]//' $BOOT_MOUNT/cmdline.txt && echo "OK" || echo "ERROR"
+			fi
 		fi
 	fi
 }
