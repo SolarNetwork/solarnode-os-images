@@ -59,6 +59,7 @@ init
 init-system-helpers
 initramfs-tools
 initramfs-tools-core
+iproute2
 iputils-ping
 isc-dhcp-common
 iw
