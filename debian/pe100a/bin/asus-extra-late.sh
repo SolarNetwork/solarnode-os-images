@@ -7,6 +7,7 @@ fi
 
 DRY_RUN=""
 VERBOSE=""
+SCRIPT_DIR="$(dirname "$0")"
 
 do_help () {
 	cat 1>&2 <<EOF
@@ -64,5 +65,39 @@ remove_edgex () {
 	fi
 }
 
+remove_X11 () {
+	echo -n "Removing X11... "
+	if [ -n "$DRY_RUN" ]; then
+		find / -name '*weston*' -o -name '*wayland*' -o -name '*glmark2*'
+		echo "DRY RUN"
+	else
+		find / \( -name '*weston*' -o -name '*wayland*' -o -name '*glmark2*' \) \
+			-prune -exec rm -rf {} \; 2>/dev/null || true
+		echo "OK"
+	fi
+}
+
+remove_nonpackaged () {
+	echo -n "Removing miscellaneous non-packaged files... "
+	if [ -n "$DRY_RUN" ]; then
+		for d in /lib/systemd; do
+			bash "$SCRIPT_DIR/find-nonpackage-files.sh" "$d"
+		done
+		echo "DRY RUN"
+	else
+		for d in /lib/systemd; do
+			bash "$SCRIPT_DIR/find-nonpackage-files.sh" "$d" |xargs rm -rf
+		done
+		rm -f /sbin/resize-helper
+		rm -f /etc/udev/rules.d/automount.rules
+		rm -f /etc/udev/scripts/mount_fs.sh
+		echo "OK"
+	fi
+}
+
 remove_asus_failover
 remove_edgex
+remove_X11
+remove_nonpackaged
+
+systemctl daemon-reload 2>/dev/null || true

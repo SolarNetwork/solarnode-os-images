@@ -83,3 +83,15 @@ rm /etc/systemd/system/multi-user.target.wants/asus_failover.service
 ### EdgeX
 
 Manually remove all EdgeX configuration and support.
+
+## Firewall
+
+Kernel does not support sn-iptables or sn-nftables.
+
+```
+# nftables
+Jan 20 13:10:32 solarnode nft[2338]: netlink.c:62: Unable to initialize Netlink socket: Protocol not supported
+
+# iptables
+Dec 03 22:48:14 solarnode iptables-restore[4760]: iptables-restore/1.8.2 Failed to initialize nft: Protocol not supported
+```
