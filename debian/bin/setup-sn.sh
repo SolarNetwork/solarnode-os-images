@@ -575,6 +575,62 @@ upgrade_software () {
 	fi
 }
 
+backup_resolvconf () {
+	if [ -f /etc/resolv.conf ]; then
+		echo -n "Backing up /etc/resolv.conf... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			cp -a /etc/resolv.conf /etc/resolv.conf.sn-setup-bak
+			echo "OK"
+		fi
+	fi
+}
+
+tmprestore_resolvconf () {
+	if [ -f /etc/resolv.conf.sn-setup-bak ]; then
+		echo -n "Temporarily restoring /etc/resolv.conf... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			mv /etc/resolv.conf /etc/resolv.conf.sn-setup-tmp-bak
+			cp -a /etc/resolv.conf.sn-setup-bak /etc/resolv.conf
+			echo "OK"
+		fi
+	fi
+}
+
+restore_resolvconf () {
+	local src=""
+	if [ -e /etc/resolv.conf.sn-setup-tmp-bak -o -L /etc/resolv.conf.sn-setup-tmp-bak ]; then
+		src="/etc/resolv.conf.sn-setup-tmp-bak"
+	elif [ -e /etc/resolv.conf.sn-setup-bak -o -L /etc/resolv.conf.sn-setup-bak ]; then
+		src="/etc/resolv.conf.sn-setup-bak" 
+	fi
+	if [ -n "$src" ]; then
+		echo -n "Restoring $src to /etc/resolv.conf... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -f /etc/resolv.conf
+			mv "$src" /etc/resolv.conf
+			rm -f /etc/resolv.conf.sn-setup-bak
+			echo "OK"
+		fi
+	fi
+	# if a package (like sn-system) created a symlink for /etc/resolv.conf
+	# then remove sn-cust-bak if exists
+	if [ -L /etc/resolv.conf -a \( -e /etc/resolv.conf.sn-cust-bak -o -L /etc/resolv.conf.sn-cust-bak \) ]; then
+		echo -n "Removing /etc/resolv.conf.sn-cust-bak to preserve /etc/resolv.conf... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -f /etc/resolv.conf.sn-cust-bak
+			echo "OK"
+		fi
+	fi
+}
+
 setup_software () {
 	[ -z "$WITHOUT_LOCALEPURGE" ] && pkg_install localepurge
 	pkg_remove rsyslog
@@ -808,6 +864,7 @@ extra_script () {
 	fi
 }
 
+backup_resolvconf
 extra_script "$EXTRA_SCRIPT_EARLY"
 setup_initramfs
 setup_software_early
@@ -819,6 +876,7 @@ setup_zone
 setup_apt
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software
+	tmprestore_resolvconf
 fi
 setup_time
 if [ -z "$SKIP_FS_EXPAND" ]; then
@@ -836,4 +894,5 @@ if [ -z "$SKIP_SOFTWARE" ]; then
 fi
 setup_ssh
 extra_script "$EXTRA_SCRIPT_LATE"
+restore_resolvconf
 check_err
