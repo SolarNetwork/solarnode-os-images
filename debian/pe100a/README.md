@@ -95,3 +95,7 @@ Jan 20 13:10:32 solarnode nft[2338]: netlink.c:62: Unable to initialize Netlink 
 # iptables
 Dec 03 22:48:14 solarnode iptables-restore[4760]: iptables-restore/1.8.2 Failed to initialize nft: Protocol not supported
 ```
+
+## WiFi
+
+The `rfkill` module is not provided in the kernel, so `sn-wifi` package not supported.
