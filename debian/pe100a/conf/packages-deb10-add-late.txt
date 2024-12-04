@@ -4,3 +4,4 @@ iw
 logrotate
 udev
 wireless-regdb
+wpasupplicant
