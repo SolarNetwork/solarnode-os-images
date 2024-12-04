@@ -10,7 +10,6 @@ sn-rxtx
 sn-solarpkg
 sn-solarssh
 sn-system
-sn-wifi
 tmux
 solarnode-base
 solarnode-app-core
@@ -19,3 +18,4 @@ ttf-bitstream-vera
 udev
 usbutils
 wireless-regdb
+wpasupplicant

@@ -198,7 +198,6 @@ pinentry-curses
 procps
 psmisc
 readline-common
-rfkill
 rsync
 sed
 sensible-utils
@@ -207,7 +206,6 @@ sn-rxtx
 sn-solarpkg
 sn-solarssh
 sn-system
-sn-wifi
 solarnode-app-core
 solarnode-app-db-h2
 solarnode-app-io-mqtt
