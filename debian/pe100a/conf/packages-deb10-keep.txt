@@ -101,7 +101,6 @@ libhogweed4
 libidn11
 libidn2-0
 libip4tc0
-libjansson4
 libjpeg62-turbo
 libjq1
 libjson-c3
@@ -123,8 +122,6 @@ libncurses6
 libncursesw6
 libnettle6
 libnewt0.52
-libnftables0
-libnftnl11
 libnghttp2-14
 libnl-3-200
 libnl-genl-3-200
@@ -167,6 +164,7 @@ libtasn1-6
 libtinfo6
 libudev1
 libunistring2
+libusb-1.0-0
 libutempter0
 libuuid1
 libwrap0
@@ -189,7 +187,6 @@ nano
 ncurses-base
 ncurses-bin
 net-tools
-nftables
 openjdk-11-jre-headless
 openssh-client
 openssh-server
@@ -205,7 +202,6 @@ rfkill
 rsync
 sed
 sensible-utils
-sn-nftables
 sn-osstat
 sn-rxtx
 sn-solarpkg
@@ -244,6 +240,8 @@ ttf-bitstream-vera
 tzdata
 ucf
 udev
+usb.ids
+usbutils
 util-linux
 whiptail
 wireless-regdb

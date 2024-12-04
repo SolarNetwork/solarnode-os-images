@@ -164,6 +164,7 @@ libtasn1-6
 libtinfo6
 libudev1
 libunistring2
+libusb-1.0-0
 libutempter0
 libuuid1
 libwrap0
@@ -239,6 +240,8 @@ ttf-bitstream-vera
 tzdata
 ucf
 udev
+usb.ids
+usbutils
 util-linux
 whiptail
 wireless-regdb

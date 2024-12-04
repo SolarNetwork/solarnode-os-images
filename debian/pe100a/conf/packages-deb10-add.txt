@@ -17,4 +17,5 @@ solarnode-app-core
 solarnode-app-db-h2
 ttf-bitstream-vera
 udev
+usbutils
 wireless-regdb
