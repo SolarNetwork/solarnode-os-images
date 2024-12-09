@@ -68,7 +68,8 @@ Arguments:
  -L <err log path>      - path to error log; defaults to $INPUT_DIR/setup-sn.err
  -l <log path>          - path to error log; defaults to $INPUT_DIR/setup-sn.log
  -M <version>           - version to append to release name; defaults to '10'
- -m                     - upgrade all packages to latest available
+ -m                     - upgrade all packages to latest available; pass twice to do a 
+                          'dist-upgrade' rather than a plain 'upgrade'
  -N <name>              - release name; defaults to 'SolarNodeOS'
  -n                     - dry run; do not make any actual changes
  -o <proxy>             - host:port of Apt HTTP proxy to use
@@ -114,7 +115,12 @@ while getopts ":A:a:B:b:D:d:Ee:Gh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" 
 		L) ERR_LOG="${OPTARG}";;
 		l) LOG="${OPTARG}";;
 		M) RELEASE_VERSION="${OPTARG}";;
-		m) UPGRADE_PKGS='TRUE';;
+		m)	if [ -n "$UPGRADE_PKGS" ]; then
+				UPGRADE_PKGS='DIST'
+			else
+				UPGRADE_PKGS='TRUE'
+			fi
+			;;
 		N) RELEASE_NAME="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
 		o) APT_PROXY="${OPTARG}";;
@@ -233,13 +239,17 @@ pkg_autoremove () {
 	fi
 }
 
-# remove package if installed
+# upgrade  all packages
 pkg_upgrade () {
-	echo -n 'Upgrading all packages... '
+	local cmd='upgrade'
+	if [ "$1" = 'DIST' ]; then
+		cmd='dist-upgrade'
+	fi
+	echo -n "Upgrading all packages with '$cmd'... "
 	if [ -n "$DRY_RUN" ]; then
 		echo 'DRY RUN'
 	else
-		if ! apt-get -qy upgrade \
+		if ! apt-get -qy $cmd \
 			${apt_proxy} \
 			--no-install-recommends \
 			>>$LOG 2>>$ERR_LOG; then
@@ -568,7 +578,7 @@ setup_software_early () {
 
 upgrade_software () {
 	if [ -n "$UPGRADE_PKGS" ]; then
-		pkg_upgrade
+		pkg_upgrade $UPGRADE_PKGS
 		if [ -z "$DRY_RUN" ]; then
 			apt-get clean
 		fi
