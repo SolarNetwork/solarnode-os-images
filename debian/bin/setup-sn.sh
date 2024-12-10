@@ -11,6 +11,7 @@ APT_PROXY=""
 BOARD="raspberrypi"
 BOOT_DEV_LABEL="SOLARBOOT"
 BOOT_MOUNT="/boot"
+DELETE_OLD_KERNELS=""
 DRY_RUN=""
 EXTRA_SCRIPT_EARLY=""
 EXTRA_SCRIPT_LATE=""
@@ -51,6 +52,7 @@ Arguments:
  -a <board>             - the board being set up; defaults to raspberrypi
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot mount>        - the boot mount path; defaults to /boot
+ -c                     - delete outdated kernel packages
  -D <package list file> - path to list of packages to delete early in script
  -d <package list file> - path to list of packages to delete late in script;
                           defaults to conf/setup-packages-del-late.txt
@@ -97,12 +99,13 @@ Arguments:
 EOF
 }
 
-while getopts ":A:a:B:b:D:d:Ee:Gh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" opt; do
+while getopts ":A:a:B:b:cD:d:Ee:Gh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" opt; do
 	case $opt in
 		A) PKG_ADD_LATE="${OPTARG}";;
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
 		b) BOOT_MOUNT="${OPTARG}";;
+		c) DELETE_OLD_KERNELS='TRUE';;
 		D) PKG_DEL_EARLY="${OPTARG}";;
 		d) PKG_DEL_LATE="${OPTARG}";;
 		e) PKG_ADD_EARLY="${OPTARG}";;
@@ -874,6 +877,28 @@ extra_script () {
 	fi
 }
 
+delete_old_kernels () {
+	# extract all kernel package version numbers, e.g. linux-image-1.2.3 -> 1.2.3, omit 
+	dpkg-query -Wf '${Package}\n' linux-image-\* |awk 'BEGIN {FS="-"} $3~/^[[:digit:]]/ {print $3}' \
+		|sort |uniq |head -1 >/tmp/old-kernel-versions.txt
+	dpkg-query -Wf '${Package}\n' linux-image-* >/tmp/all-kernel-versions.txt
+	local to_remove=""
+	local ver=""
+	while IFS= read -r line; do
+		ver="$(echo $line |awk 'BEGIN {FS="-"} $3~/^[[:digit:]]/ {print $3}')"
+		if [ -n "$ver" ]; then
+			if grep -q "^$ver$" /tmp/old-kernel-versions.txt; then
+				to_remove="$to_remove $line"
+			fi
+		fi
+	done </tmp/all-kernel-versions.txt
+	if [ -n "$to_remove" ]; then
+		pkgs_remove $to_remove
+	fi
+	rm -f /tmp/old-kernel-versions.txt
+	rm -f /tmp/all-kernel-versions.txt
+}
+
 backup_resolvconf
 extra_script "$EXTRA_SCRIPT_EARLY"
 setup_initramfs
@@ -901,6 +926,9 @@ setup_boot_cmdline
 setup_issue
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software_late
+fi
+if [ -n "$DELETE_OLD_KERNELS" ]; then
+	delete_old_kernels
 fi
 setup_ssh
 extra_script "$EXTRA_SCRIPT_LATE"
