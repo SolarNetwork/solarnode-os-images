@@ -11,6 +11,7 @@ APT_PROXY=""
 BOARD="raspberrypi"
 BOOT_DEV_LABEL="SOLARBOOT"
 BOOT_MOUNT="/boot"
+DELETE_OLD_KERNELS=""
 DRY_RUN=""
 EXTRA_SCRIPT_EARLY=""
 EXTRA_SCRIPT_LATE=""
@@ -27,6 +28,7 @@ RELEASE_NAME="SolarNodeOS"
 RELEASE_VERSION="10"
 ROOT_DEV="/dev/mmcblk0p2"
 ROOT_DEV_LABEL="SOLARNODE"
+SKIP_BOOT_CMDLINE=""
 SKIP_FS_EXPAND=""
 SKIP_SOFTWARE=""
 SNF_PKG_REPO="https://debian.repo.solarnetwork.org.nz"
@@ -50,12 +52,14 @@ Arguments:
  -a <board>             - the board being set up; defaults to raspberrypi
  -B <boot dev label>    - the boot device label; defaults to SOLARBOOT
  -b <boot mount>        - the boot mount path; defaults to /boot
+ -c                     - delete outdated kernel packages
  -D <package list file> - path to list of packages to delete early in script
  -d <package list file> - path to list of packages to delete late in script;
                           defaults to conf/setup-packages-del-late.txt
  -e <package list file> - path to list of packages to add early in script;
                           defaults to conf/setup-packages-add-early.txt
  -E                     - skip setting the file system expansion marker
+ -G                     - skip modifying /boot/cmdline.txt
  -h <hostname>          - the hostname to use; defaults to solarnode
  -i <input dir>         - path to input configuration directory; defaults
                           to /tmp/overlay
@@ -66,7 +70,8 @@ Arguments:
  -L <err log path>      - path to error log; defaults to $INPUT_DIR/setup-sn.err
  -l <log path>          - path to error log; defaults to $INPUT_DIR/setup-sn.log
  -M <version>           - version to append to release name; defaults to '10'
- -m                     - upgrade all packages to latest available
+ -m                     - upgrade all packages to latest available; pass twice to do a 
+                          'dist-upgrade' rather than a plain 'upgrade'
  -N <name>              - release name; defaults to 'SolarNodeOS'
  -n                     - dry run; do not make any actual changes
  -o <proxy>             - host:port of Apt HTTP proxy to use
@@ -94,16 +99,18 @@ Arguments:
 EOF
 }
 
-while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" opt; do
+while getopts ":A:a:B:b:cD:d:Ee:Gh:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" opt; do
 	case $opt in
 		A) PKG_ADD_LATE="${OPTARG}";;
 		a) BOARD="${OPTARG}";;
 		B) BOOT_DEV_LABEL="${OPTARG}";;
 		b) BOOT_MOUNT="${OPTARG}";;
+		c) DELETE_OLD_KERNELS='TRUE';;
 		D) PKG_DEL_EARLY="${OPTARG}";;
 		d) PKG_DEL_LATE="${OPTARG}";;
 		e) PKG_ADD_EARLY="${OPTARG}";;
 		E) SKIP_FS_EXPAND='TRUE';;
+		G) SKIP_BOOT_CMDLINE='TRUE';;
 		h) HOSTNAME="${OPTARG}";;
 		i) INPUT_DIR="${OPTARG}";;
 		K) PKG_ADD="${OPTARG}";;
@@ -111,7 +118,12 @@ while getopts ":A:a:B:b:D:d:Ee:h:i:K:k:L:l:M:mN:no:Pp:Qq:R:r:SU:u:V:vWwX:x:Z:" o
 		L) ERR_LOG="${OPTARG}";;
 		l) LOG="${OPTARG}";;
 		M) RELEASE_VERSION="${OPTARG}";;
-		m) UPGRADE_PKGS='TRUE';;
+		m)	if [ -n "$UPGRADE_PKGS" ]; then
+				UPGRADE_PKGS='DIST'
+			else
+				UPGRADE_PKGS='TRUE'
+			fi
+			;;
 		N) RELEASE_NAME="${OPTARG}";;
 		n) DRY_RUN='TRUE';;
 		o) APT_PROXY="${OPTARG}";;
@@ -230,13 +242,17 @@ pkg_autoremove () {
 	fi
 }
 
-# remove package if installed
+# upgrade  all packages
 pkg_upgrade () {
-	echo -n 'Upgrading all packages... '
+	local cmd='upgrade'
+	if [ "$1" = 'DIST' ]; then
+		cmd='dist-upgrade'
+	fi
+	echo -n "Upgrading all packages with '$cmd'... "
 	if [ -n "$DRY_RUN" ]; then
 		echo 'DRY RUN'
 	else
-		if ! apt-get -qy upgrade \
+		if ! apt-get -qy $cmd \
 			${apt_proxy} \
 			--no-install-recommends \
 			>>$LOG 2>>$ERR_LOG; then
@@ -244,6 +260,19 @@ pkg_upgrade () {
 			exit 1
 		else
 			echo 'OK'
+		fi
+	fi
+}
+
+# update-initramfs failing in Debian 12 when MODULES=most not configured
+setup_initramfs () {
+	if [ -d /etc/initramfs-tools/conf.d ]; then
+		local sn_conf="/etc/initramfs-tools/conf.d/solarnode.conf"
+		if [ ! -e "$sn_conf" ]; then
+			if grep -q "MODULES=dep" /etc/initramfs-tools/initramfs.conf; then
+				echo "Adding MODULES=most initramfs configuration to $sn_conf..."
+				echo 'MODULES=most' >"$sn_conf"
+			fi
 		fi
 	fi
 }
@@ -552,9 +581,65 @@ setup_software_early () {
 
 upgrade_software () {
 	if [ -n "$UPGRADE_PKGS" ]; then
-		pkg_upgrade
+		pkg_upgrade $UPGRADE_PKGS
 		if [ -z "$DRY_RUN" ]; then
 			apt-get clean
+		fi
+	fi
+}
+
+backup_resolvconf () {
+	if [ -f /etc/resolv.conf ]; then
+		echo -n "Backing up /etc/resolv.conf... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			cp -a /etc/resolv.conf /etc/resolv.conf.sn-setup-bak
+			echo "OK"
+		fi
+	fi
+}
+
+tmprestore_resolvconf () {
+	if [ -f /etc/resolv.conf.sn-setup-bak ]; then
+		echo -n "Temporarily restoring /etc/resolv.conf... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			mv /etc/resolv.conf /etc/resolv.conf.sn-setup-tmp-bak
+			cp -a /etc/resolv.conf.sn-setup-bak /etc/resolv.conf
+			echo "OK"
+		fi
+	fi
+}
+
+restore_resolvconf () {
+	local src=""
+	if [ -e /etc/resolv.conf.sn-setup-tmp-bak -o -L /etc/resolv.conf.sn-setup-tmp-bak ]; then
+		src="/etc/resolv.conf.sn-setup-tmp-bak"
+	elif [ -e /etc/resolv.conf.sn-setup-bak -o -L /etc/resolv.conf.sn-setup-bak ]; then
+		src="/etc/resolv.conf.sn-setup-bak" 
+	fi
+	if [ -n "$src" ]; then
+		echo -n "Restoring $src to /etc/resolv.conf... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -f /etc/resolv.conf
+			mv "$src" /etc/resolv.conf
+			rm -f /etc/resolv.conf.sn-setup-bak
+			echo "OK"
+		fi
+	fi
+	# if a package (like sn-system) created a symlink for /etc/resolv.conf
+	# then remove sn-cust-bak if exists
+	if [ -L /etc/resolv.conf -a \( -e /etc/resolv.conf.sn-cust-bak -o -L /etc/resolv.conf.sn-cust-bak \) ]; then
+		echo -n "Removing /etc/resolv.conf.sn-cust-bak to preserve /etc/resolv.conf... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			rm -f /etc/resolv.conf.sn-cust-bak
+			echo "OK"
 		fi
 	fi
 }
@@ -595,9 +680,7 @@ setup_software () {
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
 		local to_add=""
 		while IFS= read -r line; do
-			if ! grep -q "^$line$" /tmp/pkgs.txt; then
-				to_add="$to_add $line"
-			fi
+			to_add="$to_add $line"
 		done < "$INPUT_DIR/$PKG_ADD"
 		if [ -n "$to_add" ]; then
 			pkgs_install $to_add
@@ -749,16 +832,18 @@ append_boot_cmdline () {
 	
 
 setup_boot_cmdline () {
-	append_boot_cmdline 'logo.nologo'
-	append_boot_cmdline 'quiet'
-	
-	# remove upstream init if provided
-	if grep -q 'init=' $BOOT_MOUNT/cmdline.txt; then
-		echo -n "Removing init= from $BOOT_MOUNT/cmdline.txt... "
-		if [ -n "$DRY_RUN" ]; then
-			echo 'DRY RUN'
-		else
-			sed -i 's/init=[^ ][^ ]*[ 	]//' $BOOT_MOUNT/cmdline.txt && echo "OK" || echo "ERROR"
+	if [ -z "$SKIP_BOOT_CMDLINE" ]; then
+		append_boot_cmdline 'logo.nologo'
+		append_boot_cmdline 'quiet'
+		
+		# remove upstream init if provided
+		if grep -q 'init=' $BOOT_MOUNT/cmdline.txt; then
+			echo -n "Removing init= from $BOOT_MOUNT/cmdline.txt... "
+			if [ -n "$DRY_RUN" ]; then
+				echo 'DRY RUN'
+			else
+				sed -i 's/init=[^ ][^ ]*[ 	]//' $BOOT_MOUNT/cmdline.txt && echo "OK" || echo "ERROR"
+			fi
 		fi
 	fi
 }
@@ -792,7 +877,31 @@ extra_script () {
 	fi
 }
 
+delete_old_kernels () {
+	# extract all kernel package version numbers, e.g. linux-image-1.2.3 -> 1.2.3, omit 
+	dpkg-query -Wf '${Package}\n' linux-image-\* |awk 'BEGIN {FS="-"} $3~/^[[:digit:]]/ {print $3}' \
+		|sort |uniq |head -1 >/tmp/old-kernel-versions.txt
+	dpkg-query -Wf '${Package}\n' linux-image-* >/tmp/all-kernel-versions.txt
+	local to_remove=""
+	local ver=""
+	while IFS= read -r line; do
+		ver="$(echo $line |awk 'BEGIN {FS="-"} $3~/^[[:digit:]]/ {print $3}')"
+		if [ -n "$ver" ]; then
+			if grep -q "^$ver$" /tmp/old-kernel-versions.txt; then
+				to_remove="$to_remove $line"
+			fi
+		fi
+	done </tmp/all-kernel-versions.txt
+	if [ -n "$to_remove" ]; then
+		pkgs_remove $to_remove
+	fi
+	rm -f /tmp/old-kernel-versions.txt
+	rm -f /tmp/all-kernel-versions.txt
+}
+
+backup_resolvconf
 extra_script "$EXTRA_SCRIPT_EARLY"
+setup_initramfs
 setup_software_early
 setup_hostname
 setup_dns
@@ -802,6 +911,7 @@ setup_zone
 setup_apt
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software
+	tmprestore_resolvconf
 fi
 setup_time
 if [ -z "$SKIP_FS_EXPAND" ]; then
@@ -817,6 +927,10 @@ setup_issue
 if [ -z "$SKIP_SOFTWARE" ]; then
 	setup_software_late
 fi
+if [ -n "$DELETE_OLD_KERNELS" ]; then
+	delete_old_kernels
+fi
 setup_ssh
 extra_script "$EXTRA_SCRIPT_LATE"
+restore_resolvconf
 check_err

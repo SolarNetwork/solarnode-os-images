@@ -58,8 +58,8 @@ VERBOSE=""
 ERR=""
 
 do_help () {
-	cat 1>&2 <<EOF
-Usage: $0 <arguments> src script [bind-mounts]
+	cat 1>&2 <<"EOF"
+Usage: customize.sh <arguments> src script [bind-mounts]
 
  -a <args>        - extra argumnets to pass to the script
  -B               - disable separate boot partition (single root partition)
