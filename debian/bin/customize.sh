@@ -58,7 +58,7 @@ VERBOSE=""
 ERR=""
 
 show_version () {
-	echo 'v100'
+	echo 'v101'
 }
 
 do_help () {
@@ -74,6 +74,7 @@ Usage: customize.sh <arguments> src script [bind-mounts]
                     image
  -E <size MB>     - shrink the output SOLARNODE partition by this amount, in MB
  -e <size MB>     - expand the input SOLARNODE partition by this amount, in MB
+ -h               - print this help and exit
  -i               - interactive mode; run without script
  -M <boot mount>  - the boot partition mount directory; defaults to /boot
  -N <boot part #> - the source boot partition number, instead of using label
@@ -115,7 +116,7 @@ image as 'customize.sh'):
 EOF
 }
 
-while getopts ":a:BcCd:E:e:io:M:N:n:P:p:Q:q:r:R:SUVvZ:z" opt; do
+while getopts ":a:BcCd:E:e:hio:M:N:n:P:p:Q:q:r:R:SUVvZ:z" opt; do
 	case $opt in
 		a) 	if [ -n "$SCRIPT_ARGS" ]; then
 				SCRIPT_ARGS="${SCRIPT_ARGS} ${OPTARG}"
@@ -129,6 +130,7 @@ while getopts ":a:BcCd:E:e:io:M:N:n:P:p:Q:q:r:R:SUVvZ:z" opt; do
 		d) DATA_PARTITION_SIZE="${OPTARG}";;
 		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
+		h) do_help && exit 0 ;;
 		i) INTERACTIVE_MODE="TRUE";;
 		o) DEST_PATH="${OPTARG}";;
 		M) BOOT_DEV_MOUNT="${OPTARG}";;
