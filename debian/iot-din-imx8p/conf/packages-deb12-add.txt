@@ -1,0 +1,17 @@
+nano
+openjdk-17-jre-headless
+sn-mbpoll
+sn-nftables
+sn-osstat
+sn-pi
+sn-pi-usb-support
+sn-solarpkg
+sn-solarssh
+sn-system
+sn-wifi
+solarnode-base
+solarnode-app-core
+solarnode-app-db-h2
+systemd-resolved
+tmux
+ttf-bitstream-vera
