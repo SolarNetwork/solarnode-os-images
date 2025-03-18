@@ -770,7 +770,7 @@ copy_part () {
 	LAST_PARTUUID=$(blkid -o export "$part" |grep PARTUUID |cut -d= -f2)
 	if [ -n "$VERBOSE" ]; then
 		echo "$part PARTUUID = $LAST_PARTUUID"
-		echo "Labling $part as $label"
+		echo "Labeling $part as $label"
 	fi
 	case $fstype in
 		btrfs) btrfs filesystem label "$tmp_mount" "$label";;
