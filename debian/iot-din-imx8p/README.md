@@ -7,7 +7,7 @@ image:
 sudo ../bin/customize.sh -v -z \
 	-N 1 -n 2 -c -M /boot -U \
 	-E 2736 \
-	-a '-a iotdin-imx8p -V compulab -E -M 12 -q bookworm -m -w -Q -D conf/packages-deb12-del-early.txt -K conf/packages-deb12-add.txt -k conf/packages-deb12-keep.txt -X bin/extra-early.sh -x bin/extra-late.sh -o 172.16.159.167:3142' \
+	-a '-a compulab-imx8mp -V compulab -E -M 12 -q bookworm -m -w -Q -D conf/packages-deb12-del-early.txt -K conf/packages-deb12-add.txt -k conf/packages-deb12-keep.txt -X bin/extra-early.sh -x bin/extra-late.sh -o 172.16.159.167:3142' \
 	-o /var/tmp/solarnodeos-deb12-iotdin_imx8p-2GB-$(date '+%Y%m%d').img \
 	/var/tmp/debian-bookworm-arm64_iotdin-imx8p_live-img.img \
 	../bin/setup-sn.sh \
