@@ -255,11 +255,10 @@ rsync
 runit-helper
 sed
 sensible-utils
+sn-iotdin-imx8p-support
 sn-mbpoll
 sn-nftables
 sn-osstat
-sn-pi
-sn-pi-usb-support
 sn-solarpkg
 sn-solarssh
 sn-system

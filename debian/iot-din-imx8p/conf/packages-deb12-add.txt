@@ -1,10 +1,9 @@
 nano
 openjdk-17-jre-headless
+sn-iotdin-imx8p-support
 sn-mbpoll
 sn-nftables
 sn-osstat
-sn-pi
-sn-pi-usb-support
 sn-solarpkg
 sn-solarssh
 sn-system
