@@ -651,22 +651,32 @@ setup_software () {
 
 	# remove all packages NOT in manifest or not to add later and NOT starting with linux- (kernel)
 	if [ -n "$PKG_KEEP" -a -e "$INPUT_DIR/$PKG_KEEP" ]; then
+		# combine "keep" and "add" packages
+		local keep_files="$INPUT_DIR/$PKG_KEEP"
+		if [ -n "$PKG_ADD" -a -e "$INPUT_DIR/$PKG_ADD" ]; then
+			keep_files="$keep_files $INPUT_DIR/$PKG_ADD"
+		fi
+
+		echo -n "Determining packages to remove using ${keep_files}... "
+		
+		# generate list of all installed packages
 		dpkg-query --showformat='${Package}\n' --show >/tmp/pkgs.txt
-		local to_remove=""
-		while IFS= read -r line; do
-			if ! { grep -q "^$line$" "$INPUT_DIR/$PKG_KEEP" || grep -q "^$line$" "$INPUT_DIR/$PKG_ADD"; }; then
-				case $line in
-					linux-*)
-						# skip this
-						;;
-					*)
-						to_remove="$to_remove $line"
-						;;
-				esac
-			fi
-		done < /tmp/pkgs.txt
-		if [ -n "$to_remove" ]; then
-			pkgs_remove $to_remove
+		
+		# preserve some special packages
+		grep '^linux-' /tmp/pkgs.txt >/tmp/pkgs.special
+		
+		# combine special and keep files into sorted and unique list
+		sort /tmp/pkgs.special $keep_files |uniq >/tmp/pkgs.keep
+		
+		# generate list of all lines from installed packages NOT also in keep list
+		comm -2 -3 /tmp/pkgs.txt /tmp/pkgs.keep >/tmp/pkgs.to_remove
+		
+		local to_remove="$(wc -l /tmp/pkgs.to_remove |cut -f1 -d' ')"
+		if [ $to_remove -gt 0 ]; then
+			echo "$to_remove packages found."
+			pkgs_remove $(xargs -d'\n' </tmp/pkgs.to_remove)
+		else
+			echo 'no packages found.'
 		fi
 	elif [ -n "$PKG_KEEP" -a ! -e "$INPUT_DIR/$PKG_KEEP" ]; then
 		echo "Warning: $INPUT_DIR/$PKG_KEEP file not found!"
