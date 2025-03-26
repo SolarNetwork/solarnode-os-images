@@ -32,6 +32,34 @@ while getopts ":nv" opt; do
 done
 shift $(($OPTIND - 1))
 
+# mark packages as manually installed so autoremove does not remove
+for f in iproute2 iw linux-base; do	
+	if apt-mark showauto $f |grep -q "^$f$" 2>/dev/null; then
+		echo -n "Marking $f package as maually installed... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		elif apt-mark manual $f >/dev/null; then
+			echo "OK"
+		else
+			echo "ERROR"
+		fi
+	fi
+done
+
+# hold packages to prevent accidental removal
+for f in cl-deploy cl-uboot; do	
+	if ! apt-mark showhold $f |grep -q "^$f$" 2>/dev/null; then
+		echo -n "Setting hold on $f package... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		elif apt-mark hold $f >/dev/null; then
+			echo "OK"
+		else
+			echo "ERROR"
+		fi
+	fi
+done
+
 # Fix bug in bt-start removal scripts
 if grep -q 'disable bt-start.service$' /var/lib/dpkg/info/bt-start.postrm 2>/dev/null; then
 	echo -n "Fixing bt-start package remove script /var/lib/dpkg/info/bt-start.postrm... "
@@ -67,17 +95,3 @@ if [ -e /etc/apt/sources.list.d/nodesource.list ]; then
 		echo "ERROR"
 	fi
 fi
-
-# mark packages as manually installed so autoremove does not remove
-for f in iproute2 iw linux-base; do	
-	if apt-mark showauto |grep -q $f 2>/dev/null; then
-		echo -n "Marking $f package as maually installed... "
-		if [ -n "$DRY_RUN" ]; then
-			echo "DRY RUN"
-		elif apt-mark manual $f >/dev/null; then
-			echo "OK"
-		else
-			echo "ERROR"
-		fi
-	fi
-done

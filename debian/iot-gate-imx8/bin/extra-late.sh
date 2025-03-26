@@ -41,3 +41,17 @@ if [ -e /etc/profile.d/resize.sh ]; then
 		echo "OK"
 	fi
 fi
+
+# remove "Default User" lines from /etc/issue*
+for f in /etc/issue /etc/issue.net; do
+	if grep -q '^Default User' $f 2>/dev/null; then
+		echo -n "Removing 'Default User' from $f... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		elif sed -i -e '/^Default User/d' $f; then
+			echo "OK"
+		else
+			echo "ERROR"
+		fi
+	fi
+done
