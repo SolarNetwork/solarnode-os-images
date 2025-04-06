@@ -37,6 +37,6 @@ To copy the image to the eMMC on an IoT device
 2. Connect to the USB console with a terminal emulator, e.g. `screen /dev/tty.usbserial-0236DBD7 115200`
 3. Copy the image to a USB stick, plug the USB stick into the IoT, power it on
 4. The IoT will boot SolarNodeOS; log in as `solar/solar`
-5. Run `sudo sn-stop` to shut down SolarNode 
+5. Run `sn-reset -a && sn-stop` to shut down SolarNode 
 6. Run `sudo rm -f /etc/ssh/ssh_host*` to remove `ssh` host keys, so not copied to eMMC.
 7. Run `sudo cl-deploy` and follow the prompts
