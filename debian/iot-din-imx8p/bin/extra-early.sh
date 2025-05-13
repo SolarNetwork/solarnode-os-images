@@ -60,22 +60,6 @@ for f in cl-deploy cl-uboot; do
 	fi
 done
 
-# Fix bugs in package scripts, see
-# https://github.com/Azure/iot-identity-service/issues/531
-
-for f in aziot-edge aziot-identity-service; do
-	if grep -q 'daemon-reload$' /var/lib/dpkg/info/$f.postrm 2>/dev/null; then
-		echo -n "Fixing Azure package remove script /var/lib/dpkg/info/$f.postrm... "
-		if [ -n "$DRY_RUN" ]; then
-			echo "DRY RUN"
-		elif sed -i -e 's/daemon-reload$/daemon-reload 2>\/dev\/null || true/' /var/lib/dpkg/info/$f.postrm; then
-			echo "OK"
-		else
-			echo "ERROR"
-		fi
-	fi
-done
-
 # Fix bug in bt-start removal scripts
 if grep -q 'disable bt-start.service$' /var/lib/dpkg/info/bt-start.postrm 2>/dev/null; then
 	echo -n "Fixing bt-start package remove script /var/lib/dpkg/info/bt-start.postrm... "

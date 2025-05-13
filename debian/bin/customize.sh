@@ -57,11 +57,16 @@ VERBOSE=""
 
 ERR=""
 
+show_version () {
+	echo 'v101'
+}
+
 do_help () {
 	cat 1>&2 <<"EOF"
 Usage: customize.sh <arguments> src script [bind-mounts]
 
- -a <args>        - extra argumnets to pass to the script
+ -a <args>        - extra argumnets to pass to the script; can be provided multiple times
+                    to concatenate all extra arguments together with space character
  -B               - disable separate boot partition (single root partition)
  -d <size MB>     - include a SOLARDATA partition of this size, in MB
  -C               - add 'ro' option to SOLARBOOT and SOLARNODE filesystem mount options
@@ -69,6 +74,7 @@ Usage: customize.sh <arguments> src script [bind-mounts]
                     image
  -E <size MB>     - shrink the output SOLARNODE partition by this amount, in MB
  -e <size MB>     - expand the input SOLARNODE partition by this amount, in MB
+ -h               - print this help and exit
  -i               - interactive mode; run without script
  -M <boot mount>  - the boot partition mount directory; defaults to /boot
  -N <boot part #> - the source boot partition number, instead of using label
@@ -82,6 +88,7 @@ Usage: customize.sh <arguments> src script [bind-mounts]
  -r <fstype>      - use specific root filesystem type in the destination image
  -S               - if -c set, keep SSH host keys
  -U               - use PARTUUID for boot mount, instead of label
+ -V               - show script version and exit
  -v               - increase verbosity of tasks
  -Z <options>     - xz options to use on final image; defaults to '-8 -T 0'
  -z               - compress final image with xz
@@ -109,15 +116,21 @@ image as 'customize.sh'):
 EOF
 }
 
-while getopts ":a:BcCd:E:e:io:M:N:n:P:p:Q:q:r:R:SUvZ:z" opt; do
+while getopts ":a:BcCd:E:e:hio:M:N:n:P:p:Q:q:r:R:SUVvZ:z" opt; do
 	case $opt in
-		a) SCRIPT_ARGS="${OPTARG}";;
+		a) 	if [ -n "$SCRIPT_ARGS" ]; then
+				SCRIPT_ARGS="${SCRIPT_ARGS} ${OPTARG}"
+			else
+				SCRIPT_ARGS="${OPTARG}"
+			fi
+			;;
 		B) NO_BOOT_PARTITION="TRUE";;
 		C) RO_DEST_FSOPTS=',ro';;
 		c) CLEAN_IMAGE="TRUE";;
 		d) DATA_PARTITION_SIZE="${OPTARG}";;
 		E) SHRINK_SOLARNODE_FS="${OPTARG}";;
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
+		h) do_help && exit 0 ;;
 		i) INTERACTIVE_MODE="TRUE";;
 		o) DEST_PATH="${OPTARG}";;
 		M) BOOT_DEV_MOUNT="${OPTARG}";;
@@ -132,6 +145,9 @@ while getopts ":a:BcCd:E:e:io:M:N:n:P:p:Q:q:r:R:SUvZ:z" opt; do
 		S) KEEP_SSH="TRUE";;
 		U) BOOT_MOUNT_UUID="TRUE";;
 		v) VERBOSE="TRUE";;
+		V) 	show_version
+			exit 0
+			;;
 		Z) COMPRESS_DEST_OPTS="${OPTARG}";;
 		z) COMPRESS_DEST_IMAGE="TRUE";;
 		*)
@@ -644,6 +660,14 @@ execute_chroot () {
 		binds="--bind=$binds"
 	fi
 	if [ -n "$INTERACTIVE_MODE" ]; then
+		echo '##############################################################'
+		echo '### Launching interactive shell in virtual image.'
+		echo '### To mimic build run:'
+		echo '###'
+		echo "### ./customize ${SCRIPT_ARGS}"
+		echo '###'
+		echo "### Run 'exit 0' to complete the image, or 'exit 1' to cancel."
+		echo '##############################################################'
 		if ! systemd-nspawn -M solarnode-cust -D "$SRC_MOUNT" \
 			--chdir=${SCRIPT_DIR##${SRC_MOUNT}} \
 			${binds}; then
@@ -746,7 +770,7 @@ copy_part () {
 	LAST_PARTUUID=$(blkid -o export "$part" |grep PARTUUID |cut -d= -f2)
 	if [ -n "$VERBOSE" ]; then
 		echo "$part PARTUUID = $LAST_PARTUUID"
-		echo "Labling $part as $label"
+		echo "Labeling $part as $label"
 	fi
 	case $fstype in
 		btrfs) btrfs filesystem label "$tmp_mount" "$label";;

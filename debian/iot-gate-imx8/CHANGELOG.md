@@ -1,5 +1,9 @@
 # SolarNodeOS - IoT Gateway iMX8 - Change Log
 
+# 2025-03-20
+
+Updates to Debian 12, kernel 6.6.
+
 # 2024-11-20
 
 Updates to latest available packages: 5.15 kernel, Debian 11.11.
