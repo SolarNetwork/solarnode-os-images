@@ -888,25 +888,29 @@ extra_script () {
 }
 
 delete_old_kernels () {
-	# extract all kernel package version numbers, e.g. linux-image-1.2.3 -> 1.2.3, omit 
+	# extract all kernel package version numbers, e.g. linux-image-1.2.3 -> 1.2.3
 	dpkg-query -Wf '${Package}\n' linux-image-\* |awk 'BEGIN {FS="-"} $3~/^[[:digit:]]/ {print $3}' \
-		|sort |uniq |head -1 >/tmp/old-kernel-versions.txt
-	dpkg-query -Wf '${Package}\n' linux-image-* >/tmp/all-kernel-versions.txt
-	local to_remove=""
-	local ver=""
-	while IFS= read -r line; do
-		ver="$(echo $line |awk 'BEGIN {FS="-"} $3~/^[[:digit:]]/ {print $3}')"
-		if [ -n "$ver" ]; then
-			if grep -q "^$ver$" /tmp/old-kernel-versions.txt; then
-				to_remove="$to_remove $line"
+		|sort -V |uniq >/tmp/all-kernel-versions.txt
+	if [ "$(wc -l </tmp/all-kernel-versions.txt)" -gt 1 ]; then
+		head -1 /tmp/all-kernel-versions.txt >/tmp/old-kernel-versions.txt
+		dpkg-query -Wf '${Package}\n' linux-image-* >/tmp/all-kernel-packages.txt
+		local to_remove=""
+		local ver=""
+		while IFS= read -r line; do
+			ver="$(echo $line |awk 'BEGIN {FS="-"} $3~/^[[:digit:]]/ {print $3}')"
+			if [ -n "$ver" ]; then
+				if grep -q "^$ver$" /tmp/old-kernel-versions.txt; then
+					to_remove="$to_remove $line"
+				fi
 			fi
+		done </tmp/all-kernel-packages.txt
+		if [ -n "$to_remove" ]; then
+			pkgs_remove $to_remove
 		fi
-	done </tmp/all-kernel-versions.txt
-	if [ -n "$to_remove" ]; then
-		pkgs_remove $to_remove
+		rm -f /tmp/old-kernel-versions.txt
 	fi
-	rm -f /tmp/old-kernel-versions.txt
 	rm -f /tmp/all-kernel-versions.txt
+	rm -f /tmp/all-kernel-packages.txt
 }
 
 backup_resolvconf
