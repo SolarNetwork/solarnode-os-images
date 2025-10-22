@@ -43,6 +43,7 @@ RO_DEST_FSOPTS=""
 CLEAN_IMAGE=""
 COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0 -M 90%"
+COMPRESS_KEEP_RAW_IMAGE=""
 DEST_PATH=""
 DEST_DATA_FSTYPE=""
 EXPAND_SOLARNODE_FS=""
@@ -53,6 +54,7 @@ DATA_PARTITION_SIZE=""
 SCRIPT_ARGS=""
 SHRINK_SOLARNODE_FS=""
 SRC_IMG=""
+TMP_DIR="${TMPDIR:-/tmp}"
 VERBOSE=""
 
 ERR=""
@@ -76,6 +78,7 @@ Usage: customize.sh <arguments> src script [bind-mounts]
  -e <size MB>     - expand the input SOLARNODE partition by this amount, in MB
  -h               - print this help and exit
  -i               - interactive mode; run without script
+ -k               - if -z also given, keep the uncompressed image file when done
  -M <boot mount>  - the boot partition mount directory; defaults to /boot
  -N <boot part #> - the source boot partition number, instead of using label
  -n <root part #> - the source root partition number, instead of using label
@@ -87,6 +90,7 @@ Usage: customize.sh <arguments> src script [bind-mounts]
  -R <fstype>      - use specific data filesystem type in the destination image
  -r <fstype>      - use specific root filesystem type in the destination image
  -S               - if -c set, keep SSH host keys
+ -T <dir>         - temporary directory to use
  -U               - use PARTUUID for boot mount, instead of label
  -V               - show script version and exit
  -v               - increase verbosity of tasks
@@ -116,7 +120,7 @@ image as 'customize.sh'):
 EOF
 }
 
-while getopts ":a:BcCd:E:e:hio:M:N:n:P:p:Q:q:r:R:SUVvZ:z" opt; do
+while getopts ":a:BcCd:E:e:hiko:M:N:n:P:p:Q:q:r:R:ST:UVvZ:z" opt; do
 	case $opt in
 		a) 	if [ -n "$SCRIPT_ARGS" ]; then
 				SCRIPT_ARGS="${SCRIPT_ARGS} ${OPTARG}"
@@ -132,6 +136,7 @@ while getopts ":a:BcCd:E:e:hio:M:N:n:P:p:Q:q:r:R:SUVvZ:z" opt; do
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		h) do_help && exit 0 ;;
 		i) INTERACTIVE_MODE="TRUE";;
+		k) COMPRESS_KEEP_RAW_IMAGE="TRUE";;
 		o) DEST_PATH="${OPTARG}";;
 		M) BOOT_DEV_MOUNT="${OPTARG}";;
 		N) SRC_BOOT_PARTNUM="${OPTARG}";;
@@ -143,6 +148,7 @@ while getopts ":a:BcCd:E:e:hio:M:N:n:P:p:Q:q:r:R:SUVvZ:z" opt; do
 		R) DEST_DATA_FSTYPE="${OPTARG}";;
 		r) DEST_ROOT_FSTYPE="${OPTARG}";;
 		S) KEEP_SSH="TRUE";;
+		T) TMP_DIR="${OPTARG}";;
 		U) BOOT_MOUNT_UUID="TRUE";;
 		v) VERBOSE="TRUE";;
 		V) 	show_version
@@ -203,8 +209,8 @@ LOOPDEV=""
 SOLARBOOT_PART=""
 SOLARNODE_PART=""
 SOLARDATA_PART=""
-SRC_IMG=$(mktemp -t img-XXXXX)
-SRC_MOUNT=$(mktemp -d -t sn-XXXXX)
+SRC_IMG=$(mktemp -p "$TMP_DIR" img-XXXXX)
+SRC_MOUNT=$(mktemp -p "$TMP_DIR" -d sn-XXXXX)
 SCRIPT_DIR=""
 
 copy_src_img () {
@@ -561,7 +567,7 @@ setup_chroot () {
 		fi
 	fi
 	echo 'nameserver 1.1.1.1' >"$SRC_MOUNT/etc/resolv.conf"
-	SCRIPT_DIR=$(mktemp -d -t sn-XXXXX -p "$SRC_MOUNT/var/tmp")
+	SCRIPT_DIR=$(mktemp -p "$TMP_DIR" -d sn-XXXXX -p "$SRC_MOUNT/var/tmp")
 	if [ -n "$VERBOSE" ]; then
 		echo "Created script directory $SCRIPT_DIR."
 	fi
@@ -694,7 +700,7 @@ setup_boot_cmdline () {
 	local fstype="$2"
 	local rootpartuuid="$3"
 	local subdir="$4"
-	local tmp_mount=$(mktemp -d -t sn-XXXXX)
+	local tmp_mount=$(mktemp -p "$TMP_DIR" -d sn-XXXXX)
 	local tmp_root="$tmp_mount"
 	if [ -n "$VERBOSE" ]; then
 		echo "Mounting $part on $tmp_mount with options ${MNT_OPTS[$fstype]}."
@@ -759,7 +765,7 @@ copy_part () {
 		echo "Error: failed to create $part $fstype filesystem."
 		exit 1
 	fi
-	local tmp_mount=$(mktemp -d -t sn-XXXXX)
+	local tmp_mount=$(mktemp -p "$TMP_DIR" -d sn-XXXXX)
 	if [ -n "$VERBOSE" ]; then
 		echo "Mounting $part on $tmp_mount with options ${MNT_OPTS[$fstype]}."
 	fi
@@ -801,7 +807,7 @@ copy_img () {
 	local root_part_num=0
 	local shrink_size_sectors=0
 	
-	local out_img=$(mktemp -t img-XXXXX)
+	local out_img=$(mktemp -p "$TMP_DIR" img-XXXXX)
 	if [ -n "$VERBOSE" ]; then
 		echo "Creating ${size_mb}MB output image $out_img."
 	fi
@@ -922,6 +928,13 @@ copy_img () {
 				echo "Checksumming compressed image as ${out_name}.img.xz.sha256..."
 			fi
 			sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
+			
+			if [ -z "$COMPRESS_KEEP_RAW_IMAGE" ]; then
+				if [ -n "$VERBOSE" ]; then
+					echo "Deleting uncompressed image ${out_path}/${out_name}.img..."
+				fi
+				rm -f "${out_path}/${out_name}.img" "${out_path}/${out_name}.img.sha256" 
+			fi
 		fi
 		popd
 	else
