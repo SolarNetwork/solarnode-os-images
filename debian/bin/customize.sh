@@ -43,6 +43,7 @@ RO_DEST_FSOPTS=""
 CLEAN_IMAGE=""
 COMPRESS_DEST_IMAGE=""
 COMPRESS_DEST_OPTS="-8 -T 0 -M 90%"
+COMPRESS_KEEP_RAW_IMAGE=""
 DEST_PATH=""
 DEST_DATA_FSTYPE=""
 EXPAND_SOLARNODE_FS=""
@@ -77,6 +78,7 @@ Usage: customize.sh <arguments> src script [bind-mounts]
  -e <size MB>     - expand the input SOLARNODE partition by this amount, in MB
  -h               - print this help and exit
  -i               - interactive mode; run without script
+ -k               - if -z also given, keep the uncompressed image file when done
  -M <boot mount>  - the boot partition mount directory; defaults to /boot
  -N <boot part #> - the source boot partition number, instead of using label
  -n <root part #> - the source root partition number, instead of using label
@@ -118,7 +120,7 @@ image as 'customize.sh'):
 EOF
 }
 
-while getopts ":a:BcCd:E:e:hio:M:N:n:P:p:Q:q:r:R:ST:UVvZ:z" opt; do
+while getopts ":a:BcCd:E:e:hiko:M:N:n:P:p:Q:q:r:R:ST:UVvZ:z" opt; do
 	case $opt in
 		a) 	if [ -n "$SCRIPT_ARGS" ]; then
 				SCRIPT_ARGS="${SCRIPT_ARGS} ${OPTARG}"
@@ -134,6 +136,7 @@ while getopts ":a:BcCd:E:e:hio:M:N:n:P:p:Q:q:r:R:ST:UVvZ:z" opt; do
 		e) EXPAND_SOLARNODE_FS="${OPTARG}";;
 		h) do_help && exit 0 ;;
 		i) INTERACTIVE_MODE="TRUE";;
+		k) COMPRESS_KEEP_RAW_IMAGE="TRUE";;
 		o) DEST_PATH="${OPTARG}";;
 		M) BOOT_DEV_MOUNT="${OPTARG}";;
 		N) SRC_BOOT_PARTNUM="${OPTARG}";;
@@ -925,6 +928,13 @@ copy_img () {
 				echo "Checksumming compressed image as ${out_name}.img.xz.sha256..."
 			fi
 			sha256sum "${out_name}.img.xz" >"${out_name}.img.xz.sha256"
+			
+			if [ -z "$COMPRESS_KEEP_RAW_IMAGE" ]; then
+				if [ -n "$VERBOSE" ]; then
+					echo "Deleting uncompressed image ${out_path}/${out_name}.img..."
+				fi
+				rm -f "${out_path}/${out_name}.img" "${out_path}/${out_name}.img.sha256" 
+			fi
 		fi
 		popd
 	else
