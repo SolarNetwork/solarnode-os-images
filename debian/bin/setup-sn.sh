@@ -253,6 +253,8 @@ pkg_upgrade () {
 		echo 'DRY RUN'
 	else
 		if ! apt-get -qy $cmd \
+			-o Dpkg::Options::="--force-confdef" \
+			-o Dpkg::Options::="--force-confnew" \
 			${apt_proxy} \
 			--no-install-recommends \
 			>>$LOG 2>>$ERR_LOG; then
