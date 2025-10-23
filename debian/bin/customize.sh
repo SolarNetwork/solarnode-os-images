@@ -956,5 +956,6 @@ else
 fi
 clean_src_img
 if [ -z "$ERR" -a -n "$DEST_PATH" ]; then
-	echo "Customized image saved to $DEST_PATH"
+	echo "Customized image created:"
+	ls -lh "$DEST_PATH"*
 fi
