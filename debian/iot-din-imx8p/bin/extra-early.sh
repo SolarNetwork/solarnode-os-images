@@ -12,7 +12,7 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments>
 
-Extra setup script IoT Gate SolarNodeOS.
+Extra setup script IoT DIN SolarNodeOS.
 
 Arguments:
  -n                     - dry run; do not make any actual changes
@@ -90,6 +90,18 @@ if [ -e /etc/apt/sources.list.d/nodesource.list ]; then
 	if [ -n "$DRY_RUN" ]; then
 		echo "DRY RUN"
 	elif rm -f /etc/apt/sources.list.d/nodesource.list; then
+		echo "OK"
+	else
+		echo "ERROR"
+	fi
+fi
+
+# remove any default nftables.conf
+if [ -e /etc/nftables.conf ]; then
+	echo -n "Removing /etc/nftables.conf... "
+	if [ -n "$DRY_RUN" ]; then
+		echo "DRY RUN"
+	elif rm -f /etc/nftables.conf; then
 		echo "OK"
 	else
 		echo "ERROR"

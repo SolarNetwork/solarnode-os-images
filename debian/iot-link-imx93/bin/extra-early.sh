@@ -95,3 +95,15 @@ if [ -e /etc/apt/sources.list.d/nodesource.list ]; then
 		echo "ERROR"
 	fi
 fi
+
+# remove any default nftables.conf
+if [ -e /etc/nftables.conf ]; then
+	echo -n "Removing /etc/nftables.conf... "
+	if [ -n "$DRY_RUN" ]; then
+		echo "DRY RUN"
+	elif rm -f /etc/nftables.conf; then
+		echo "OK"
+	else
+		echo "ERROR"
+	fi
+fi
