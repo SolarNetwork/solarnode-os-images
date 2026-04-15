@@ -55,3 +55,20 @@ for f in /etc/issue /etc/issue.net; do
 		fi
 	fi
 done
+
+# bump up JVM memory
+if [ ! -e /etc/solarnode/env.conf ]; then
+	echo -n 'Increasing SolarNode RAM allocation in /etc/solarnode/env.conf... '
+	if [ -n "$DRY_RUN" ]; then
+		echo "DRY RUN"
+	else
+		tee /etc/solarnode/env.conf <<'EOF'
+JAVA_OPTS=-Xmx512m \
+	-XX:+ExitOnOutOfMemoryError \
+	-XX:MaxMetaspaceSize=256m \
+	-Djava.security.egd=file:/dev/./urandom \
+	-Djavax.xml.bind.JAXBContextFactory=com.sun.xml.bind.v2.ContextFactory \
+	-Djava.net.preferIPv4Stack=true
+EOF
+	fi
+fi
