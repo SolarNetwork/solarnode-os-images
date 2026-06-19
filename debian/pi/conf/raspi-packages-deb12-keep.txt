@@ -211,8 +211,8 @@ libxtables12
 libxxhash0
 libzstd1
 linux-base
-linux-image-6.12.25+rpt-rpi-2712
-linux-image-6.12.25+rpt-rpi-v8
+linux-image-6.12.75+rpt-rpi-2712
+linux-image-6.12.75+rpt-rpi-v8
 linux-image-rpi-2712
 linux-image-rpi-v8
 locales
