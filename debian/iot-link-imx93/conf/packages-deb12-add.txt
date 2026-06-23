@@ -1,6 +1,7 @@
 linux-base
 nano
 openjdk-17-jre-headless
+sn-iotlink-imx93-support
 sn-mbpoll
 sn-nftables
 sn-osstat
