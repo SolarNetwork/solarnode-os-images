@@ -1,6 +1,6 @@
 # SolarNodeOS - IoT DIN iMX8p - Change Log
 
-# 2026-06-23
+# 2026-06-24
 
 Based on Debian 12.14, kernel 6.6.
 
