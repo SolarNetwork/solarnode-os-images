@@ -60,3 +60,15 @@ done
 if [ -n "$DRY_RUN" ]; then
 	dpkg-reconfigure iputils-ping
 fi
+
+# cl-deploy will fail if the /boot/grub directory does not exist
+if [ ! -d /boot/grub ]; then
+	echo -n "Creating /boot/grub directory... "
+	if [ -n "$DRY_RUN" ]; then
+		echo "DRY RUN"
+	elif mkdir /boot/grub; then
+		echo "OK"
+	else
+		echo "ERROR"
+	fi
+fi
