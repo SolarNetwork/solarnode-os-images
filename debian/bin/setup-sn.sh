@@ -844,7 +844,7 @@ append_boot_cmdline () {
 	
 
 setup_boot_cmdline () {
-	if [ -z "$SKIP_BOOT_CMDLINE" ]; then
+	if [ -e $BOOT_MOUNT/cmdline.txt -a -z "$SKIP_BOOT_CMDLINE" ]; then
 		append_boot_cmdline 'logo.nologo'
 		append_boot_cmdline 'quiet'
 		
