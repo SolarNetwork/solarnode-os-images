@@ -107,3 +107,20 @@ if [ -e /etc/nftables.conf ]; then
 		echo "ERROR"
 	fi
 fi
+
+# add non-free-firmware and comment out deb-src and backports in /etc/apt/sources.list
+if [ -e /etc/apt/sources.list ]; then
+	if ! grep -q non-free-firmware /etc/apt/sources.list; then
+		echo -n "Adding non-free-firmware to /etc/apt/sources.list... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		elif sed -i \
+			-e 's/debian\(.*\) main$/debian\1 main non-free-firmware/' \
+			-e 's/^deb-src/#deb-src/' \
+			-e 's/^deb \(.*backports\)/#deb \1/' /etc/apt/sources.list; then
+			echo "OK"
+		else
+			echo "ERROR"
+		fi
+	fi
+fi
