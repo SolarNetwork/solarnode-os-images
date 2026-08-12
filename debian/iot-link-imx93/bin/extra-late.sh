@@ -5,6 +5,8 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
+MOBILE_CONF_FILE="/etc/default/sn-mobile-usb-wwan"
+AT_INIT_FILE="/usr/local/etc/sn-mobile-usb-wwan-init"
 DRY_RUN=""
 VERBOSE=""
 
@@ -56,6 +58,23 @@ for f in /etc/issue /etc/issue.net; do
 	fi
 done
 
+# bump up JVM memory
+if [ ! -e /etc/solarnode/env.conf ]; then
+	echo -n 'Increasing SolarNode RAM allocation in /etc/solarnode/env.conf... '
+	if [ -n "$DRY_RUN" ]; then
+		echo "DRY RUN"
+	else
+		tee /etc/solarnode/env.conf <<'EOF'
+JAVA_OPTS=-Xmx512m \
+	-XX:+ExitOnOutOfMemoryError \
+	-XX:MaxMetaspaceSize=256m \
+	-Djava.security.egd=file:/dev/./urandom \
+	-Djavax.xml.bind.JAXBContextFactory=com.sun.xml.bind.v2.ContextFactory \
+	-Djava.net.preferIPv4Stack=true
+EOF
+	fi
+fi
+
 # fix "ping" to work for non-root users
 if [ -n "$DRY_RUN" ]; then
 	dpkg-reconfigure iputils-ping
@@ -72,3 +91,19 @@ if [ ! -d /boot/grub ]; then
 		echo "ERROR"
 	fi
 fi
+
+# configure sn-mobile-usb-wwan init, even though package not installed by default
+echo "Generating default $AT_INIT_FILE for sn-mobile-usb-wwan package"
+cat <<- EOF > "$AT_INIT_FILE"
+	AT+DIALMODE=0
+	AT\$MYCONFIG="USBNETMODE",1
+	AT+USBNETIP=1
+	AT+CGDCONT=1,"IP","\$MOBILE_APN"
+EOF
+
+echo "Configuring sn-mobile-mm settings in $MOBILE_CONF_FILE"
+echo "AT_INIT_FILE=$AT_INIT_FILE" |tee -a "$MOBILE_CONF_FILE"
+echo "AUTO_RECONNECT_ENABLE=1" |tee -a "$MOBILE_CONF_FILE"
+echo "MOBILE_APN=internet" |tee -a "$MOBILE_CONF_FILE"
+echo "MOBILE_RESET_HOOK=/usr/share/solarnode/bin/iotlink-imx93-mobile-reset.sh" |tee -a "$MOBILE_CONF_FILE"
+

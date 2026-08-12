@@ -12,7 +12,7 @@ do_help () {
 	cat 1>&2 <<EOF
 Usage: $0 <arguments>
 
-Extra setup script IoT Gate SolarNodeOS.
+Extra setup script IoT Link SolarNodeOS.
 
 Arguments:
  -n                     - dry run; do not make any actual changes
