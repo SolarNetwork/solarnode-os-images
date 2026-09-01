@@ -124,3 +124,44 @@ if [ -e /etc/apt/sources.list ]; then
 		fi
 	fi
 fi
+
+# install custom kernel if available, from custom-kernel directory
+# expect to find an Image file along with linux*.deb packages to install
+if [ -e /tmp/overlay/custom-kernel/Image ]; then
+	pkg="$(ls -1 /tmp/overlay/custom-kernel/linux-image-*.deb)"
+	if [ -n "$pkg" ]; then
+		# remove existing kernel
+		for n in $(dpkg-query -Wf '${Package}\n' linux-image-* linux-headers-*); do
+			echo -n "Removing kernel package $n... "
+			if [ -n "$DRY_RUN" ]; then
+				echo "DRY RUN"
+			else
+				if dpkg -P --force-all $n >/dev/null; then
+					echo "OK"
+				else
+					echo "ERROR"
+				fi
+			fi
+		done
+		if [ -e /boot/Image -a -z "$DRY_RUN" ]; then
+			rm -f /boot/Image*
+		fi
+		vers="$(strings /tmp/overlay/custom-kernel/Image |grep 'Linux version' |head -1 |sed -e 's/.* version \([a-zA-Z0-9._-]*\).*/\1/')"
+		echo -n "Installing custom kernel $vers... "
+		if [ -n "$DRY_RUN" ]; then
+			echo "DRY RUN"
+		else
+			if dpkg -i /tmp/overlay/custom-kernel/*.deb >/dev/null; then
+				cp -a /tmp/overlay/custom-kernel/Image "/boot/Image-$vers"
+				chown root:root "/boot/Image-$vers"
+				chmod 644 "/boot/Image-$vers"
+				ln -sf "Image-$vers" /boot/Image
+				echo "OK"
+			else
+				echo "ERROR"
+			fi
+		fi
+	else
+		echo "ERROR: Linux header package not found in /tmp/overlay/custom-kernel/"
+	fi
+fi
