@@ -5,6 +5,8 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
+MOBILE_CONF_FILE="/etc/default/sn-mobile-usb-wwan"
+AT_INIT_FILE="/usr/local/etc/sn-mobile-usb-wwan-init"
 DRY_RUN=""
 VERBOSE=""
 
@@ -89,3 +91,17 @@ if [ ! -d /boot/grub ]; then
 		echo "ERROR"
 	fi
 fi
+
+# Configure sn-mobile-usb-wwan init, even though package not installed by default.
+# These settings are for the Quectel EG25-G modem.
+echo "Generating default $AT_INIT_FILE for sn-mobile-usb-wwan package"
+cat <<- EOF > "$AT_INIT_FILE"
+	AT+QCFG="usbnet",1
+	AT+CGDCONT=1,"IP","\$MOBILE_APN"
+EOF
+
+echo "Configuring sn-mobile-usb-wwan settings in $MOBILE_CONF_FILE"
+echo "AT_INIT_FILE=$AT_INIT_FILE" |tee -a "$MOBILE_CONF_FILE"
+echo "AUTO_RECONNECT_ENABLE=1" |tee -a "$MOBILE_CONF_FILE"
+echo "MOBILE_APN=internet" |tee -a "$MOBILE_CONF_FILE"
+echo "MOBILE_RESET_HOOK=/usr/share/solarnode/bin/iotdin-imx8p-mobile-reset.sh" |tee -a "$MOBILE_CONF_FILE"

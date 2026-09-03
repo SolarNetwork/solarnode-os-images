@@ -92,7 +92,8 @@ if [ ! -d /boot/grub ]; then
 	fi
 fi
 
-# configure sn-mobile-usb-wwan init, even though package not installed by default
+# Configure sn-mobile-usb-wwan init, even though package not installed by default.
+# These settings are for the SIMcom 7672 modem.
 echo "Generating default $AT_INIT_FILE for sn-mobile-usb-wwan package"
 cat <<- EOF > "$AT_INIT_FILE"
 	AT+DIALMODE=0
@@ -101,7 +102,7 @@ cat <<- EOF > "$AT_INIT_FILE"
 	AT+CGDCONT=1,"IP","\$MOBILE_APN"
 EOF
 
-echo "Configuring sn-mobile-mm settings in $MOBILE_CONF_FILE"
+echo "Configuring sn-mobile-usb-wwan settings in $MOBILE_CONF_FILE"
 echo "AT_INIT_FILE=$AT_INIT_FILE" |tee -a "$MOBILE_CONF_FILE"
 echo "AUTO_RECONNECT_ENABLE=1" |tee -a "$MOBILE_CONF_FILE"
 echo "MOBILE_APN=internet" |tee -a "$MOBILE_CONF_FILE"
